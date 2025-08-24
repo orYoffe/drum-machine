@@ -11,8 +11,8 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 
 ## ✨ Features
 
-- **🎵 Drum Sequencer**: 16-step sequencer with 8 drum types (Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap)
-- **🎛️ Live Input**: Click drum pads or use keyboard shortcuts (1-8 keys) to trigger sounds
+- **🎵 Drum Sequencer**: 16-step sequencer with 9 drum types (Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap, Bass)
+- **🎛️ Live Input**: Click drum pads or use keyboard shortcuts (1-9 keys) to trigger sounds
 - **🎚️ Tempo Control**: Adjustable BPM from 60-200
 - **📏 Pattern Length**: Choose between 8, 16, or 32 steps
 - **🔇 Mute Controls**: Individual mute buttons for each drum row and a global mute all button
@@ -51,7 +51,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 
 ### Live Input
 - **Drum Pads**: Click to trigger sounds immediately
-- **Keyboard Shortcuts**: Use keys 1-8 for quick sound triggering
+- **Keyboard Shortcuts**: Use keys 1-9 for quick sound triggering
 - **Spacebar**: Play/pause the sequencer
 - **C Key**: Clear the pattern
 

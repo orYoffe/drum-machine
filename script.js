@@ -11,7 +11,7 @@ class DrumMachine {
         // High-quality drum samples using Web Audio API synthesis
         this.sampleUrls = null; // We'll generate better sounds directly
         
-        this.drumTypes = ['kick', 'snare', 'hihat', 'crash', 'tom1', 'tom2', 'ride', 'clap'];
+        this.drumTypes = ['kick', 'snare', 'hihat', 'crash', 'tom1', 'tom2', 'ride', 'clap', 'bass'];
         
         // Mute state for each drum type
         this.mutedDrums = {};
@@ -604,6 +604,7 @@ class DrumMachine {
             '6': 'tom2',
             '7': 'ride',
             '8': 'clap',
+            '9': 'bass',
             ' ': 'play', // Spacebar
             'c': 'clear' // C key
         };
