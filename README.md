@@ -11,30 +11,15 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 
 ## ✨ Features
 
-### 🎵 Core Drum Machine
-- **8 Drum Sounds**: Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap
-- **Grid Sequencer**: Classic drum machine layout with visual step indicators
-- **Pattern Lengths**: 8, 16, or 32 steps
-- **Tempo Control**: 60-200 BPM with real-time adjustment
-- **Visual Feedback**: Current position highlighting and 4-step beat indicators
-
-### 🎙️ Recording & Playback
-- **Programmed Sequences**: Click grid cells to program beats
-- **Live Input Recording**: Record live tapping/clicking to create patterns
-- **Real-time Input**: Use keyboard (1-8) or mouse to trigger sounds live
-- **Pattern Management**: Save, load, and clear patterns
-
-### 🔗 Export & Sharing
-- **URL Encoding**: All beat data encoded in URL parameters
-- **Shareable Links**: Share beats via URL (copied to clipboard)
-- **Import**: Load beats from shared URLs
-- **Local Storage**: Save beats locally in browser
-
-### 🎨 User Interface
-- **Dark/Light Themes**: Toggle between themes with persistent settings
-- **Responsive Design**: Works on desktop and mobile devices
-- **Visual Indicators**: 4-step beat markers for better timing visualization
-- **Smooth Animations**: Transitions and hover effects
+- **🎵 Drum Sequencer**: 16-step sequencer with 8 drum types (Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap)
+- **🎛️ Live Input**: Click drum pads or use keyboard shortcuts (1-8 keys) to trigger sounds
+- **🎚️ Tempo Control**: Adjustable BPM from 60-200
+- **📏 Pattern Length**: Choose between 8, 16, or 32 steps
+- **🔇 Mute Controls**: Individual mute buttons for each drum row and a global mute all button
+- **🎨 Sound Selection**: Choose from multiple sound options for each drum type
+- **🌙 Dark Mode**: Automatic system preference detection with manual toggle option
+- **💾 Save & Load**: Save beats locally and share via URL
+- **📱 Responsive Design**: Works on desktop and mobile devices
 
 ## 🚀 Getting Started
 
@@ -54,20 +39,21 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🎮 Controls
 
 ### Transport Controls
-- **▶️ Play/Pause**: Start/stop playback (Spacebar)
+- **▶️ Play/Pause**: Start/stop the sequencer
 - **⏹️ Stop**: Stop and reset to beginning
-- **🔴 Record**: Record live input (R key)
-- **🗑️ Clear**: Clear current pattern (C key)
+- **🗑️ Clear**: Clear all programmed patterns
+- **🔇 Mute All**: Mute/unmute all drum tracks
 
-### Drum Pad Controls
-- **1**: Kick drum
-- **2**: Snare drum  
-- **3**: Hi-hat
-- **4**: Crash cymbal
-- **5**: Tom 1
-- **6**: Tom 2
-- **7**: Ride cymbal
-- **8**: Clap
+### Drum Machine
+- **Grid Cells**: Click to program beats on/off
+- **Drum Labels**: Show drum types with individual mute buttons
+- **Visual Indicators**: Red borders every 4 steps for beat counting
+
+### Live Input
+- **Drum Pads**: Click to trigger sounds immediately
+- **Keyboard Shortcuts**: Use keys 1-8 for quick sound triggering
+- **Spacebar**: Play/pause the sequencer
+- **C Key**: Clear the pattern
 
 ### Pattern Controls
 - **Pattern Length**: Choose between 8, 16, or 32 steps

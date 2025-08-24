@@ -2,13 +2,10 @@ class DrumMachine {
     constructor() {
         this.audioContext = null;
         this.isPlaying = false;
-        this.isRecording = false;
         this.currentStep = 0;
         this.tempo = 120;
         this.patternLength = 16;
         this.sequencer = null;
-        this.recordingBuffer = [];
-        this.recordingStartTime = 0;
         this.samples = {};
         
         // High-quality drum samples using Web Audio API synthesis
@@ -29,7 +26,6 @@ class DrumMachine {
         try {
             // Initialize audio context
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('Audio context initialized');
             
             // Load samples
             await this.loadSamples();
@@ -56,7 +52,6 @@ class DrumMachine {
             this.initMuteButtons();
             
             this.updateStatus('Ready to create beats!');
-            console.log('Drum machine initialized successfully');
         } catch (error) {
             console.error('Failed to initialize drum machine:', error);
             this.updateStatus('Failed to initialize audio. Please refresh the page.');
@@ -70,10 +65,9 @@ class DrumMachine {
                 const audioBuffer = await loadSample(this.audioContext, type);
                 if (audioBuffer) {
                     this.samples[type] = audioBuffer;
-                    console.log(`Loaded ${type} sample successfully`);
                 } else {
                     // Fallback to synthesized sound if loading fails
-                    console.log(`Using synthesized sound for ${type}`);
+                    console.warn(`Using synthesized sound for ${type} - sample loading failed`);
                     this.samples[type] = this.createSynthesizedSound(type);
                 }
             } catch (error) {
@@ -84,7 +78,6 @@ class DrumMachine {
         });
         
         await Promise.all(loadPromises);
-        console.log('All samples loaded');
     }
 
     // Method to change sound for a specific drum type
@@ -97,7 +90,6 @@ class DrumMachine {
                 const audioBuffer = await loadSample(this.audioContext, drumType);
                 if (audioBuffer) {
                     this.samples[drumType] = audioBuffer;
-                    console.log(`Changed ${drumType} sound to: ${soundFile}`);
                     this.updateStatus(`${drumType} sound changed successfully`);
                     
                     // Refresh the sound selection UI
@@ -150,7 +142,6 @@ class DrumMachine {
                 });
                 
                 this.updateStatus('All sounds reset to defaults');
-                console.log('All sounds reset to defaults');
             }
         } catch (error) {
             console.error('Failed to reset sounds:', error);
@@ -167,7 +158,6 @@ class DrumMachine {
         
         const status = this.mutedDrums[drumType] ? 'muted' : 'unmuted';
         this.updateStatus(`${drumType} ${status}`);
-        console.log(`${drumType} ${status}`);
     }
 
     // Method to mute all drums
@@ -179,7 +169,6 @@ class DrumMachine {
         this.saveMuteState();
         this.updateMuteAllButton();
         this.updateStatus('All drums muted');
-        console.log('All drums muted');
     }
 
     // Method to unmute all drums
@@ -191,7 +180,6 @@ class DrumMachine {
         this.saveMuteState();
         this.updateMuteAllButton();
         this.updateStatus('All drums unmuted');
-        console.log('All drums unmuted');
     }
 
     // Method to update mute button appearance
@@ -261,7 +249,6 @@ class DrumMachine {
                         this.mutedDrums[drumType] = savedMuteState[drumType];
                     }
                 });
-                console.log('Mute state loaded from localStorage');
             }
         } catch (error) {
             console.error('Failed to load mute state:', error);
@@ -274,7 +261,6 @@ class DrumMachine {
             this.updateMuteButton(drumType);
         });
         this.updateMuteAllButton(); // Initialize the mute all button
-        console.log('Mute buttons initialized');
     }
 
     createSynthesizedSound(type) {
@@ -467,12 +453,10 @@ class DrumMachine {
     }
 
     initSoundSelection() {
-        console.log('Initializing sound selection UI...');
         // Populate sound selection UI for each drum type
         this.drumTypes.forEach(drumType => {
             this.populateSoundOptions(drumType);
         });
-        console.log('Sound selection UI initialized');
     }
 
     populateSoundOptions(drumType) {
@@ -485,8 +469,6 @@ class DrumMachine {
         const availableSounds = this.getAvailableSounds(drumType);
         const currentSound = this.getCurrentSoundFile(drumType);
         
-        console.log(`Populating ${drumType} sounds:`, { availableSounds, currentSound });
-
         container.innerHTML = '';
 
         availableSounds.forEach(sound => {
@@ -497,12 +479,10 @@ class DrumMachine {
             // Mark current selection
             if (sound.file === currentSound) {
                 option.classList.add('current');
-                console.log(`Marking ${sound.name} as current for ${drumType}`);
             }
             
             // Add click event to change sound
             option.addEventListener('click', async () => {
-                console.log(`Changing ${drumType} sound to: ${sound.name} (${sound.file})`);
                 
                 // Remove current class from all options
                 container.querySelectorAll('.sound-option').forEach(opt => {
@@ -554,9 +534,6 @@ class DrumMachine {
         
         // Stop button
         document.getElementById('stop-btn').addEventListener('click', () => this.stop());
-        
-        // Record button
-        document.getElementById('record-btn').addEventListener('click', () => this.toggleRecording());
         
         // Clear button
         document.getElementById('clear-btn').addEventListener('click', () => this.clearPattern());
@@ -628,7 +605,6 @@ class DrumMachine {
             '7': 'ride',
             '8': 'clap',
             ' ': 'play', // Spacebar
-            'r': 'record', // R key
             'c': 'clear' // C key
         };
         
@@ -638,15 +614,10 @@ class DrumMachine {
             
             if (action === 'play') {
                 this.togglePlay();
-            } else if (action === 'record') {
-                this.toggleRecording();
             } else if (action === 'clear') {
                 this.clearPattern();
             } else {
                 this.playSound(action);
-                if (this.isRecording) {
-                    this.recordLiveInput(action);
-                }
             }
         }
     }
@@ -740,60 +711,7 @@ class DrumMachine {
         source.start();
     }
 
-    toggleRecording() {
-        if (this.isRecording) {
-            this.stopRecording();
-        } else {
-            this.startRecording();
-        }
-    }
-
-    startRecording() {
-        this.isRecording = true;
-        this.recordingBuffer = [];
-        this.recordingStartTime = Date.now();
-        
-        document.getElementById('record-btn').textContent = '⏹️ Stop Recording';
-        document.getElementById('record-btn').classList.add('btn-success');
-        
-        this.updateStatus('Recording live input... Click drum pads or use keyboard (1-8)');
-    }
-
-    stopRecording() {
-        this.isRecording = false;
-        document.getElementById('record-btn').textContent = '🔴 Record';
-        document.getElementById('record-btn').classList.remove('btn-success');
-        
-        if (this.recordingBuffer.length > 0) {
-            this.processRecording();
-        }
-        
-        this.updateStatus('Recording stopped');
-    }
-
-    recordLiveInput(drumType) {
-        if (!this.isRecording || this.mutedDrums[drumType]) return;
-        
-        const timestamp = Date.now() - this.recordingStartTime;
-        this.recordingBuffer.push({ drumType, timestamp });
-    }
-
-    processRecording() {
-        // Convert recording to sequencer pattern
-        const stepDuration = (60 / this.tempo) * 4 / this.patternLength * 1000;
-        
-        this.recordingBuffer.forEach(record => {
-            const step = Math.floor(record.timestamp / stepDuration) % this.patternLength;
-            if (step >= 0 && step < this.patternLength) {
-                this.sequencer[record.drumType][step] = true;
-            }
-        });
-        
-        // Update grid display
-        this.updateGridDisplay();
-        
-        this.updateStatus(`Recorded ${this.recordingBuffer.length} hits into pattern`);
-    }
+    // Removed recording functionality
 
     updateGridDisplay() {
         this.drumTypes.forEach((drumType, rowIndex) => {
@@ -882,7 +800,7 @@ class DrumMachine {
                 this.loadBeatData(decoded);
                 this.updateStatus('Beat loaded from URL');
             } catch (error) {
-                console.error('Failed to load beat from URL:', error);
+                // Silent error handling
             }
         }
     }
@@ -907,7 +825,7 @@ class DrumMachine {
                 this.loadBeatData(beatData);
                 this.updateStatus('Beat loaded from local storage');
             } catch (error) {
-                console.error('Failed to load from local storage:', error);
+                // Silent error handling
             }
         }
     }
@@ -930,10 +848,8 @@ class DrumMachine {
                 themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
                 themeToggle.title = `Switch to ${newTheme === 'dark' ? 'light' : 'dark'} mode`;
             }
-            
-            console.log(`Theme switched to ${newTheme} mode`);
         } catch (error) {
-            console.error('Failed to toggle theme:', error);
+            // Silent error handling
         }
     }
     
@@ -944,14 +860,12 @@ class DrumMachine {
             if (savedTheme) {
                 // User has explicitly chosen a theme, use it
                 document.documentElement.setAttribute('data-theme', savedTheme);
-                console.log(`Loaded saved theme: ${savedTheme}`);
             } else {
                 // No saved theme, detect system preference
                 const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 const autoTheme = systemPrefersDark ? 'dark' : 'light';
                 
                 document.documentElement.setAttribute('data-theme', autoTheme);
-                console.log(`Auto-detected theme from system preference: ${autoTheme}`);
                 
                 // Save the auto-detected theme so user can override it
                 localStorage.setItem('drumMachineTheme', autoTheme);
@@ -980,13 +894,11 @@ class DrumMachine {
                             themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
                             themeToggle.title = `Switch to ${newTheme === 'dark' ? 'light' : 'dark'} mode`;
                         }
-                        
-                        console.log(`System theme changed to: ${newTheme}`);
                     }
                 });
             }
         } catch (error) {
-            console.error('Failed to load theme:', error);
+            // Silent error handling
         }
     }
 }

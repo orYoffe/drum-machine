@@ -2,28 +2,25 @@
 
 This document provides technical details for developers who want to contribute to the Drum Machine project.
 
-## 🏗️ Architecture Overview
+## 🎵 Core Features
 
-### Core Components
+### Drum Sequencer
+- **8 Drum Types**: Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap
+- **Step Sequencer**: Grid-based pattern programming with visual feedback
+- **Pattern Lengths**: Configurable 8, 16, or 32 steps
+- **Tempo Control**: Real-time BPM adjustment (60-200)
 
-#### 1. DrumMachine Class (`script.js`)
-- **Main Application Logic**: Handles all drum machine functionality
-- **Audio Context Management**: Web Audio API initialization and management
-- **Sequencer Logic**: Pattern creation, playback, and timing
-- **UI Management**: Grid generation and event handling
-- **Theme System**: Dark/light mode switching and persistence
+### Audio Engine
+- **Web Audio API**: High-quality audio synthesis and playback
+- **Sample Management**: Local WAV file loading with fallback to synthesized sounds
+- **Sound Selection**: User-configurable sound options for each drum type
+- **Mute System**: Individual and global mute controls with visual feedback
 
-#### 2. Sample Management (`samples.js`)
-- **External Sample Loading**: Fetches drum samples from online sources
-- **Fallback System**: Provides synthesized sounds if external loading fails
-- **Error Handling**: Graceful degradation for network issues
-- **Audio Buffer Management**: Efficient sample storage and retrieval
-
-#### 3. Styling System (`styles.css`)
-- **CSS Custom Properties**: Theme variables for consistent styling
+### User Interface
 - **Responsive Design**: Mobile-first approach with CSS Grid/Flexbox
-- **Dark Mode Support**: Complete theme system with smooth transitions
-- **Accessibility**: Focus states and keyboard navigation support
+- **Theme System**: Dark/light mode with system preference detection
+- **Visual Indicators**: 4-step beat markers and current position highlighting
+- **Accessibility**: Keyboard shortcuts and focus management
 
 ## 🔧 Development Setup
 
@@ -247,7 +244,6 @@ const url = `${window.location.origin}${window.location.pathname}?beat=${encoded
 - [ ] Theme switching works correctly
 - [ ] Audio samples load and play
 - [ ] Grid interaction responds properly
-- [ ] Recording functionality works
 - [ ] URL sharing generates valid links
 - [ ] Local storage saves and loads beats
 - [ ] Responsive design works on mobile

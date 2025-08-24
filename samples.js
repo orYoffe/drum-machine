@@ -71,10 +71,9 @@ const SOUND_COLLECTIONS = {
         ]
     },
     tom1: {
-        default: 'sounds/Percs/Tom_1.wav',
+        default: 'sounds/Percs/Tom_2.wav',
         options: [
-            { name: 'Simple Tom', file: 'sounds/Percs/Tom_1.wav' },
-            { name: 'Tom 2', file: 'sounds/Percs/Tom_2.wav' },
+            { name: 'Simple Tom', file: 'sounds/Percs/Tom_2.wav' },
             { name: 'Tom 3', file: 'sounds/Percs/Tom_3.wav' },
             { name: 'Tom 4', file: 'sounds/Percs/Tom_4.wav' },
             { name: 'Tom 5', file: 'sounds/Percs/Tom_5.wav' },
@@ -82,21 +81,22 @@ const SOUND_COLLECTIONS = {
             { name: 'Tom 7', file: 'sounds/Percs/Tom_7.wav' },
             { name: 'Tom 8', file: 'sounds/Percs/Tom_8.wav' },
             { name: 'Tom 9', file: 'sounds/Percs/Tom_9.wav' },
-            { name: 'Tom 10', file: 'sounds/Percs/Tom_10.wav' }
+            { name: 'Tom 10', file: 'sounds/Percs/Tom_10.wav' },
+            { name: 'Tom', file: 'sounds/Percs/Tom.wav' }
         ]
     },
     tom2: {
-        default: 'sounds/Percs/Tom_2.wav',
+        default: 'sounds/Percs/Tom_3.wav',
         options: [
-            { name: 'Simple Tom 2', file: 'sounds/Percs/Tom_2.wav' },
-            { name: 'Tom 3', file: 'sounds/Percs/Tom_3.wav' },
+            { name: 'Simple Tom 2', file: 'sounds/Percs/Tom_3.wav' },
             { name: 'Tom 4', file: 'sounds/Percs/Tom_4.wav' },
             { name: 'Tom 5', file: 'sounds/Percs/Tom_5.wav' },
             { name: 'Tom 6', file: 'sounds/Percs/Tom_6.wav' },
             { name: 'Tom 7', file: 'sounds/Percs/Tom_7.wav' },
             { name: 'Tom 8', file: 'sounds/Percs/Tom_8.wav' },
             { name: 'Tom 9', file: 'sounds/Percs/Tom_9.wav' },
-            { name: 'Tom 10', file: 'sounds/Percs/Tom_10.wav' }
+            { name: 'Tom 10', file: 'sounds/Percs/Tom_10.wav' },
+            { name: 'Tom', file: 'sounds/Percs/Tom.wav' }
         ]
     },
     ride: {
@@ -143,7 +143,6 @@ function initializeSoundSelections() {
         try {
             currentSoundSelections = JSON.parse(saved);
         } catch (error) {
-            console.error('Failed to load sound selections:', error);
             currentSoundSelections = {};
         }
     }
@@ -164,7 +163,7 @@ function saveSoundSelections() {
     try {
         localStorage.setItem('drumMachineSoundSelections', JSON.stringify(currentSoundSelections));
     } catch (error) {
-        console.error('Failed to save sound selections:', error);
+        // Silent error handling
     }
 }
 
@@ -177,31 +176,25 @@ function getCurrentSoundFile(drumType) {
 function changeSound(drumType, soundFile) {
     currentSoundSelections[drumType] = soundFile;
     saveSoundSelections();
-    console.log(`Changed ${drumType} sound to: ${soundFile}`);
 }
 
 // Function to load a sample
 async function loadSample(audioContext, drumType) {
     if (!SOUND_COLLECTIONS[drumType]) {
-        console.error(`Unknown drum type: ${drumType}`);
         return null;
     }
 
     try {
         const soundFile = getCurrentSoundFile(drumType);
-        console.log(`Loading ${drumType} sample: ${soundFile}`);
         
         const response = await fetch(soundFile);
         if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             return await audioContext.decodeAudioData(arrayBuffer);
         } else {
-            console.error(`Failed to load ${drumType} sample: ${response.status} ${response.statusText}`);
-            
             // Try to fall back to default sound if current selection failed
             const defaultSound = SOUND_COLLECTIONS[drumType].default;
             if (soundFile !== defaultSound) {
-                console.log(`Trying default sound for ${drumType}: ${defaultSound}`);
                 const defaultResponse = await fetch(defaultSound);
                 if (defaultResponse.ok) {
                     const arrayBuffer = await defaultResponse.arrayBuffer();
@@ -214,7 +207,6 @@ async function loadSample(audioContext, drumType) {
             return null;
         }
     } catch (error) {
-        console.error(`Failed to load ${drumType} sample:`, error);
         return null;
     }
 }
