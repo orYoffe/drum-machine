@@ -12,11 +12,12 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## ✨ Features
 
 - **🎵 Drum Sequencer**: 16-step sequencer with 9 drum types (Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap, Bass)
-- **🎛️ Live Input**: Click drum pads or use keyboard shortcuts (1-9 keys) to trigger sounds
+- **🎛️ Live Input**: Click drum pads or use keyboard shortcuts (1-9 keys) to trigger sounds and record them
 - **🎚️ Tempo Control**: Adjustable BPM from 60-200
 - **📏 Pattern Length**: Choose between 8, 16, or 32 steps
 - **🔇 Mute Controls**: Individual mute buttons for each drum row and a global mute all button
-- **🎨 Sound Selection**: Choose from multiple sound options for each drum type
+- **🎨 Sound Selection**: Choose from multiple sound options for each drum type (collapsible categories)
+- **🔴 Recording**: Record live performances and save as downloadable files
 - **🌙 Dark Mode**: Automatic system preference detection with manual toggle option
 - **💾 Save & Load**: Save beats locally and share via URL
 - **📱 Responsive Design**: Works on desktop and mobile devices
@@ -33,7 +34,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 3. **Set your tempo** using the BPM slider
 4. **Program beats** by clicking grid cells
 5. **Press Play** (▶️) to hear your pattern
-6. **Record live** by clicking the Record button and using drum pads
+6. **Record live** by clicking the Record button, then playing the sequencer or using drum pads
 7. **Share beats** by clicking the Share button (copies URL to clipboard)
 
 ## 🎮 Controls
@@ -43,6 +44,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 - **⏹️ Stop**: Stop and reset to beginning
 - **🗑️ Clear**: Clear all programmed patterns
 - **🔇 Mute All**: Mute/unmute all drum tracks
+- **🔴 Record**: Start/stop recording live performances
 
 ### Drum Machine
 - **Grid Cells**: Click to program beats on/off
@@ -55,10 +57,26 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 - **Spacebar**: Play/pause the sequencer
 - **C Key**: Clear the pattern
 
+### Recording Feature
+- **🔴 Record Button**: Click to start recording the actual drum sounds
+- **⏹️ Stop Recording**: Click again to stop and save the recording
+- **File Download**: Recordings are automatically saved as WAV audio files
+- **Audio Quality**: Captures the actual drum machine output, not microphone input
+- **Universal Format**: WAV files can be played in any audio player or DAW
+- **How to Use**: Start recording, then play the sequencer or use drum pads to capture the sounds
+
 ### Pattern Controls
 - **Pattern Length**: Choose between 8, 16, or 32 steps
 - **Tempo**: Adjust BPM from 60-200
 - **Theme Toggle**: Switch between light and dark modes
+
+### Sound Selection
+- **Collapsible Section**: The entire sound selection section is collapsible (closed by default)
+- **Multiple Options**: Choose from multiple sound options for each drum type
+- **Easy Switching**: Click on any sound option to change the drum sound
+- **Reset Functionality**: Reset all sounds to defaults with one button
+- **Visual Feedback**: Current selection is highlighted in green
+- **Clean Interface**: Sound options are hidden until needed, keeping the interface organized
 
 ## 🎵 Audio Engine
 
@@ -208,14 +226,13 @@ drum-machine/
 - **Device Restart**: Restart device if experiencing lag
 - **Clear Cache**: Clear browser cache if issues persist
 
-## 🔮 Future Enhancements
+## 🔮 Potential Future Enhancements
 
 ### Planned Features
 - **More Drum Sounds**: Additional percussion and effects
 - **Pattern Library**: Built-in beat templates
 - **Advanced Effects**: Reverb, delay, and compression
 - **MIDI Export**: Export patterns as MIDI files
-- **Collaboration**: Real-time collaborative beat creation
 
 ### Technical Improvements
 - **WebAssembly**: Audio processing in WebAssembly for better performance

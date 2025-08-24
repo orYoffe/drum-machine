@@ -12,6 +12,7 @@
     --success-color: #28a745;
     --danger-color: #dc3545;
     --primary-color: #667eea;
+    --hover-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Dark mode variables */
@@ -28,6 +29,14 @@
     --success-color: #4caf50;
     --danger-color: #f44336;
     --primary-color: #2196f3;
+    --hover-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Pulse animation for recording indicator */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 
 /* Ensure smooth transitions for all elements */
@@ -232,6 +241,28 @@ header p {
 
 .btn-success:hover {
     background: var(--success-color);
+    filter: brightness(0.9);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    border: 2px solid #ff4757;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    filter: brightness(0.9);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffa726, #ff9800);
+    color: white;
+    border: 2px solid #ff8f00;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ffa726, #ff9800);
     filter: brightness(0.9);
 }
 
@@ -629,6 +660,39 @@ header p {
     color: var(--text-primary);
     text-align: center;
     font-size: 1.1rem;
+}
+
+.section-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    margin-bottom: 10px;
+}
+
+.section-header:hover {
+    background-color: var(--hover-color);
+}
+
+.expand-icon {
+    font-size: 0.8em;
+    transition: transform 0.2s ease;
+}
+
+.expand-icon.expanded {
+    transform: rotate(90deg);
+}
+
+.sound-content.collapsed {
+    display: none;
+}
+
+.sound-content {
+    transition: all 0.3s ease;
 }
 
 .sound-options {

@@ -19,6 +19,14 @@ class DrumMachine {
             this.mutedDrums[type] = false;
         });
         
+            // Recording state
+        this.isRecording = false;
+        this.recordingBuffer = [];
+        this.recordingStartTime = 0;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.recordingDestination = null; // For capturing audio output
+        
         this.init();
     }
 
@@ -549,6 +557,7 @@ class DrumMachine {
             this.patternLength = parseInt(e.target.value);
             this.initSequencer();
             this.generateGrid();
+            this.updateGridDisplay(); // Update the display after changing pattern length
         });
         
         // Drum pad buttons
@@ -590,6 +599,36 @@ class DrumMachine {
                 this.toggleMute(drumType);
             });
         });
+        
+        // Record button
+        document.getElementById('record-btn').addEventListener('click', () => {
+            if (this.isRecording) {
+                this.stopRecording();
+            } else {
+                this.startRecording();
+            }
+        });
+        
+        // Sound selection section header for collapsible functionality
+        const soundSelectionHeader = document.getElementById('sound-selection-header');
+        if (soundSelectionHeader) {
+            soundSelectionHeader.addEventListener('click', () => {
+                const soundContent = document.querySelector('.sound-content');
+                const expandIcon = soundSelectionHeader.querySelector('.expand-icon');
+                
+                if (soundContent.classList.contains('collapsed')) {
+                    // Expand
+                    soundContent.classList.remove('collapsed');
+                    expandIcon.classList.add('expanded');
+                    expandIcon.textContent = '🔽';
+                } else {
+                    // Collapse
+                    soundContent.classList.add('collapsed');
+                    expandIcon.classList.remove('expanded');
+                    expandIcon.textContent = '▶️';
+                }
+            });
+        }
     }
 
     handleKeyPress(e) {
@@ -704,15 +743,229 @@ class DrumMachine {
         
         source.buffer = this.samples[drumType];
         source.connect(gainNode);
+        
+        // Route audio to both speakers and recording destination (if recording)
+        if (this.isRecording && this.recordingDestination) {
+            gainNode.connect(this.recordingDestination);
+        }
         gainNode.connect(this.audioContext.destination);
         
         // Add some variation to make it sound more natural
         gainNode.gain.value = 0.7 + Math.random() * 0.3;
         
         source.start();
+        
+        // Record the drum hit if recording is active
+        this.recordDrumHit(drumType);
     }
 
-    // Removed recording functionality
+    // Recording functionality
+    async startRecording() {
+        if (this.isRecording) return;
+        
+        try {
+            this.isRecording = true;
+            this.recordingBuffer = [];
+            this.recordingStartTime = Date.now();
+            this.audioChunks = [];
+            
+            // Create a MediaStreamDestination to capture audio output
+            this.recordingDestination = this.audioContext.createMediaStreamDestination();
+            
+            // Create MediaRecorder to capture the audio stream
+            this.mediaRecorder = new MediaRecorder(this.recordingDestination.stream, {
+                mimeType: 'audio/webm;codecs=opus'
+            });
+            
+            // Collect audio chunks
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
+                }
+            };
+            
+            // Start recording
+            this.mediaRecorder.start();
+            
+            // Update UI
+            const recordBtn = document.getElementById('record-btn');
+            recordBtn.textContent = '⏹️ Stop Recording';
+            recordBtn.classList.remove('btn-danger');
+            recordBtn.classList.add('btn-warning');
+            
+            // Add recording indicator to status
+            const statusText = document.getElementById('status-text');
+            statusText.innerHTML = '<span style="color: #ff6b6b; animation: pulse 1s infinite;">🔴 Recording...</span> Play the sequencer or use drum pads to record the actual sounds';
+            
+            // Start updating recording duration
+            this.recordingInterval = setInterval(() => {
+                if (this.isRecording) {
+                    const duration = (Date.now() - this.recordingStartTime) / 1000;
+                    const durationSpan = statusText.querySelector('span');
+                    if (durationSpan) {
+                        durationSpan.textContent = `🔴 Recording... ${duration.toFixed(1)}s`;
+                    }
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('Failed to start recording:', error);
+            this.updateStatus('Failed to start recording audio output.');
+        }
+    }
+    
+    stopRecording() {
+        if (!this.isRecording) return;
+        
+        this.isRecording = false;
+        const recordingDuration = Date.now() - this.recordingStartTime;
+        
+        // Clear recording interval
+        if (this.recordingInterval) {
+            clearInterval(this.recordingInterval);
+            this.recordingInterval = null;
+        }
+        
+        // Stop MediaRecorder and get final data
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+            
+            // Wait for final data and save
+            this.mediaRecorder.onstop = () => {
+                if (this.audioChunks.length > 0) {
+                    this.saveRecording();
+                    this.updateStatus(`Recording saved! Duration: ${(recordingDuration / 1000).toFixed(1)}s`);
+                } else {
+                    this.updateStatus('No recording data to save');
+                }
+            };
+        }
+        
+        // Update UI
+        const recordBtn = document.getElementById('record-btn');
+        recordBtn.textContent = '🔴 Record';
+        recordBtn.classList.remove('btn-warning');
+        recordBtn.classList.add('btn-danger');
+        
+        // Stop all tracks in the stream
+        if (this.mediaRecorder && this.mediaRecorder.stream) {
+            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+    }
+    
+    async saveRecording() {
+        try {
+            // Create blob from audio chunks
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            
+            // Convert to WAV format
+            const wavBlob = await this.convertToWav(audioBlob);
+            
+            // Create download link
+            const url = URL.createObjectURL(wavBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `drum-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            URL.revokeObjectURL(url);
+            
+        } catch (error) {
+            console.error('Failed to save recording:', error);
+            this.updateStatus('Failed to save recording');
+        }
+    }
+    
+    async convertToWav(audioBlob) {
+        try {
+            // Convert blob to array buffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            
+            // Decode the audio data
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // Convert to WAV format
+            const wavBuffer = this.audioBufferToWav(audioBuffer);
+            
+            return new Blob([wavBuffer], { type: 'audio/wav' });
+            
+        } catch (error) {
+            console.error('Failed to convert to WAV:', error);
+            // Fallback: return original blob if conversion fails
+            return audioBlob;
+        }
+    }
+    
+    audioBufferToWav(buffer) {
+        const length = buffer.length;
+        const numberOfChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+        const view = new DataView(arrayBuffer);
+        
+        // WAV file header
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+        
+        const writeUint32 = (offset, value) => {
+            view.setUint32(offset, value, true);
+        };
+        
+        const writeUint16 = (offset, value) => {
+            view.setUint16(offset, value, true);
+        };
+        
+        // RIFF chunk descriptor
+        writeString(0, 'RIFF');
+        writeUint32(4, 36 + length * numberOfChannels * 2);
+        writeString(8, 'WAVE');
+        
+        // fmt sub-chunk
+        writeString(12, 'fmt ');
+        writeUint32(16, 16);
+        writeUint16(20, 1);
+        writeUint16(22, numberOfChannels);
+        writeUint32(24, sampleRate);
+        writeUint32(28, sampleRate * numberOfChannels * 2);
+        writeUint16(32, numberOfChannels * 2);
+        writeUint16(34, 16);
+        
+        // data sub-chunk
+        writeString(36, 'data');
+        writeUint32(40, length * numberOfChannels * 2);
+        
+        // Convert audio data to 16-bit PCM
+        let offset = 44;
+        for (let i = 0; i < length; i++) {
+            for (let channel = 0; channel < numberOfChannels; channel++) {
+                const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+        }
+        
+        return arrayBuffer;
+    }
+    
+    recordDrumHit(drumType) {
+        if (!this.isRecording) return;
+        
+        const timestamp = Date.now() - this.recordingStartTime;
+        this.recordingBuffer.push({
+            drumType,
+            timestamp,
+            step: Math.floor((timestamp / 1000) * (this.tempo / 60) * (this.patternLength / 16))
+        });
+    }
 
     updateGridDisplay() {
         this.drumTypes.forEach((drumType, rowIndex) => {
@@ -775,6 +1028,12 @@ class DrumMachine {
 
     loadBeatData(data) {
         if (data.sequencer) {
+            // Ensure all current drum types exist in the loaded sequencer
+            this.drumTypes.forEach(drumType => {
+                if (!data.sequencer[drumType]) {
+                    data.sequencer[drumType] = new Array(this.patternLength).fill(false);
+                }
+            });
             this.sequencer = data.sequencer;
         }
         if (data.tempo) {
@@ -826,7 +1085,10 @@ class DrumMachine {
                 this.loadBeatData(beatData);
                 this.updateStatus('Beat loaded from local storage');
             } catch (error) {
-                // Silent error handling
+                console.error('Failed to load from local storage:', error);
+                // Clear corrupted data
+                localStorage.removeItem('drumMachineBeat');
+                this.updateStatus('Corrupted beat data cleared');
             }
         }
     }
