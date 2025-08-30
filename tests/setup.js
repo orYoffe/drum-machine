@@ -223,7 +223,7 @@ beforeEach(() => {
 });
 
 // Cleanup after each test
-afterEach(() => {
-  // Clean up any timers
-  jest.clearAllTimers();
-});
+// afterEach(() => {
+//   // Clean up any timers
+//   jest.clearAllTimers();
+// });

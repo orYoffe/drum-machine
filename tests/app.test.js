@@ -237,7 +237,7 @@ describe('Drum Machine App - Real Functionality', () => {
       expect(missingElement).toBeNull();
 
       // App should handle this gracefully
-      const safeGetElement = id => {
+      const safeGetElement = (id) => {
         const element = document.getElementById(id);
         return element || null;
       };
@@ -292,7 +292,7 @@ describe('Drum Machine App - Real Functionality', () => {
 
       // Test drum rows
       const drumRows = document.querySelectorAll('.drum-row');
-      drumRows.forEach(row => {
+      drumRows.forEach((row) => {
         const drumType = row.getAttribute('data-drum');
         expect(drumType).toBeDefined();
         expect(['kick', 'snare']).toContain(drumType);
