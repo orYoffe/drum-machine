@@ -25,10 +25,12 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Modern web browser with Web Audio API support
 - No installation required - runs entirely in the browser
 
 ### Quick Start
+
 1. **Open the website** in your browser
 2. **Click the theme toggle** (🌙/☀️) to switch between light/dark modes
 3. **Set your tempo** using the BPM slider
@@ -40,6 +42,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🎮 Controls
 
 ### Transport Controls
+
 - **▶️ Play/Pause**: Start/stop the sequencer
 - **⏹️ Stop**: Stop and reset to beginning
 - **🗑️ Clear**: Clear all programmed patterns
@@ -47,17 +50,20 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 - **🔴 Record**: Start/stop recording live performances
 
 ### Drum Machine
+
 - **Grid Cells**: Click to program beats on/off
 - **Drum Labels**: Show drum types with individual mute buttons
 - **Visual Indicators**: Red borders every 4 steps for beat counting
 
 ### Live Input
+
 - **Drum Pads**: Click to trigger sounds immediately
 - **Keyboard Shortcuts**: Use keys 1-9 for quick sound triggering
 - **Spacebar**: Play/pause the sequencer
 - **C Key**: Clear the pattern
 
 ### Recording Feature
+
 - **🔴 Record Button**: Click to start recording the actual drum sounds
 - **⏹️ Stop Recording**: Click again to stop and save the recording
 - **File Download**: Recordings are automatically saved as WAV audio files
@@ -66,11 +72,13 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 - **How to Use**: Start recording, then play the sequencer or use drum pads to capture the sounds
 
 ### Pattern Controls
+
 - **Pattern Length**: Choose between 8, 16, or 32 steps
 - **Tempo**: Adjust BPM from 60-200
 - **Theme Toggle**: Switch between light and dark modes
 
 ### Sound Selection
+
 - **Collapsible Section**: The entire sound selection section is collapsible (closed by default)
 - **Multiple Options**: Choose from multiple sound options for each drum type
 - **Easy Switching**: Click on any sound option to change the drum sound
@@ -81,12 +89,14 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🎵 Audio Engine
 
 ### Sample System
+
 - **Real Drum Samples**: High-quality recorded drum sounds from online sources
 - **Fallback System**: Synthesized sounds if online samples fail to load
 - **Web Audio API**: Client-side audio generation with low latency
 - **Sample Management**: Efficient loading and caching for smooth playback
 
 ### Audio Quality
+
 - **Sample Rate**: Native browser sample rate (typically 44.1kHz)
 - **Latency**: Under 50ms from click to sound
 - **Format Support**: MP3 and WAV files with base64 fallbacks
@@ -95,6 +105,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🔧 Technical Details
 
 ### Architecture
+
 - **Frontend**: Vanilla JavaScript with modern ES6+ features
 - **Styling**: CSS Grid/Flexbox with CSS custom properties (variables)
 - **Audio**: Web Audio API for real-time sound generation
@@ -102,12 +113,14 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 - **Sharing**: Base64 URL encoding for beat data
 
 ### Browser Compatibility
+
 - **Chrome**: 66+ (Web Audio API support)
 - **Firefox**: 60+ (Web Audio API support)
 - **Safari**: 11+ (Web Audio API support)
 - **Edge**: 79+ (Web Audio API support)
 
 ### Performance
+
 - **Bundle Size**: Under 100KB total
 - **Load Time**: Under 3 seconds on 3G connection
 - **Memory Usage**: Optimized for smooth 60fps interface
@@ -116,12 +129,14 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 📱 Mobile Usage
 
 ### Touch Interface
+
 - **Responsive Grid**: Adapts to screen size
 - **Touch-friendly Buttons**: Large tap targets for mobile
 - **Swipe Support**: Horizontal scrolling for longer patterns
 - **Portrait/Landscape**: Optimized for both orientations
 
 ### Mobile Features
+
 - **Touch Recording**: Tap drum pads to record live
 - **Gesture Support**: Swipe and tap for pattern creation
 - **Responsive Layout**: Automatic adjustment for small screens
@@ -130,18 +145,21 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🎨 Theme System
 
 ### Light Mode
+
 - **Background**: Beautiful blue gradient
 - **Cards**: Semi-transparent white with blur effects
 - **Text**: Dark colors for readability
 - **Accents**: Blue and gold highlights
 
 ### Dark Mode
+
 - **Background**: Deep navy gradient
 - **Cards**: Subtle dark panels with borders
 - **Text**: Light colors with proper contrast
 - **Accents**: Golden highlights for visual appeal
 
 ### Theme Features
+
 - **Automatic Persistence**: Saves your preference
 - **Smooth Transitions**: 0.3s transitions between themes
 - **Icon Changes**: Moon/sun button updates automatically
@@ -150,18 +168,21 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🔗 Sharing & Collaboration
 
 ### URL Sharing
+
 - **Automatic Encoding**: Beat data automatically encoded in URL
 - **Clipboard Copy**: One-click copying to clipboard
 - **Fallback Support**: Works even if clipboard API fails
 - **URL Length**: Optimized to stay within browser limits
 
 ### Beat Import
+
 - **URL Loading**: Paste shared URLs to load beats
 - **Error Handling**: Graceful fallback for invalid URLs
 - **Validation**: Checks for valid beat data format
 - **Status Updates**: Clear feedback on load success/failure
 
 ### Local Storage
+
 - **Automatic Saving**: Beats saved locally in browser
 - **Persistent Storage**: Survives browser restarts
 - **Multiple Beats**: Save multiple patterns locally
@@ -170,6 +191,7 @@ A lightweight, client-side drum machine website for creating beats and drum trac
 ## 🛠️ Development
 
 ### Project Structure
+
 ```
 drum-machine/
 ├── index.html          # Main HTML with theme toggle
@@ -181,6 +203,7 @@ drum-machine/
 ```
 
 ### Key Components
+
 - **DrumMachine Class**: Main application logic
 - **Audio Context**: Web Audio API management
 - **Sample Loader**: External sample loading with fallbacks
@@ -188,6 +211,7 @@ drum-machine/
 - **Grid Generator**: Dynamic sequencer grid creation
 
 ### Audio Implementation
+
 - **Sample Loading**: Async loading with error handling
 - **Synthesis Fallback**: High-quality synthesized sounds
 - **Real-time Playback**: Precise timing for beat accuracy
@@ -198,29 +222,34 @@ drum-machine/
 ### Common Issues
 
 #### Audio Not Working
+
 - **Check Browser**: Ensure Web Audio API is supported
 - **User Interaction**: Click anywhere on the page first
 - **Audio Context**: Check browser console for errors
 - **Permissions**: Allow audio playback if prompted
 
 #### Samples Not Loading
+
 - **Network Issues**: Check internet connection
 - **Console Errors**: Look for sample loading errors
 - **Fallback System**: Synthesized sounds should work offline
 - **Browser Cache**: Try refreshing the page
 
 #### Theme Not Saving
+
 - **Local Storage**: Check if localStorage is enabled
 - **Browser Settings**: Ensure cookies/local storage aren't blocked
 - **Private Mode**: Some browsers limit storage in private mode
 
 #### Mobile Issues
+
 - **Touch Events**: Ensure touch events are enabled
 - **Screen Size**: Check responsive design on small screens
 - **Performance**: Close other apps for better performance
 - **Browser**: Use latest mobile browser version
 
 ### Performance Tips
+
 - **Close Tabs**: Reduce memory usage by closing unused tabs
 - **Browser Updates**: Keep browser updated for best performance
 - **Device Restart**: Restart device if experiencing lag
@@ -229,12 +258,14 @@ drum-machine/
 ## 🔮 Potential Future Enhancements
 
 ### Planned Features
+
 - **More Drum Sounds**: Additional percussion and effects
 - **Pattern Library**: Built-in beat templates
 - **Advanced Effects**: Reverb, delay, and compression
 - **MIDI Export**: Export patterns as MIDI files
 
 ### Technical Improvements
+
 - **WebAssembly**: Audio processing in WebAssembly for better performance
 - **Service Worker**: Offline-first experience with caching
 - **PWA Support**: Install as desktop/mobile app
@@ -249,15 +280,27 @@ This project is open source and available under the MIT License.
 Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
 
 ### Development Setup
+
 1. Clone the repository
-2. Open `index.html` in a web browser
-3. Use `npx serve .` for local development server
-4. Make changes and test in browser
-5. Submit pull request with description of changes
+2. Install dependencies: `npm install`
+3. Start development server: `npm run serve`
+4. Run tests: `npm test`
+5. Make changes and test in browser
+6. Run full test suite: `npm run test:all`
+7. Submit pull request with description of changes
+
+### Testing
+
+- **Unit Tests**: `npm test` - Test core functionality
+- **E2E Tests**: `npm run test:e2e` - Test complete workflows
+- **All Tests**: `npm run test:all` - Run everything
+- **Coverage**: `npm run test:coverage` - Generate coverage report
+- **Watch Mode**: `npm run test:watch` - Run tests on file changes
 
 ## 📞 Support
 
 If you encounter any issues or have questions:
+
 - Check the troubleshooting section above
 - Look for error messages in the browser console
 - Ensure your browser supports Web Audio API
