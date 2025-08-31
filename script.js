@@ -95,6 +95,9 @@ class DrumMachine {
       // Start periodic audio health check
       this.startAudioHealthCheck();
 
+      // Initialize piano tool
+      this.initPiano();
+
       this.updateStatus('Ready to create beats!');
     } catch (error) {
       console.error('Failed to initialize drum machine:', error);
@@ -176,13 +179,48 @@ class DrumMachine {
 
   async resumeAudioContext() {
     try {
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
-        this.updateStatus('🎵 Audio resumed successfully!');
+      // Check if audio context exists and is in a valid state
+      if (!this.audioContext) {
+        this.updateStatus(
+          '❌ Audio context not available. Please refresh the page.'
+        );
+        return false;
       }
+
+      // Check if we're in a browser environment that allows audio context resume
+      if (typeof this.audioContext.resume !== 'function') {
+        this.updateStatus(
+          '❌ Audio context resume not supported. Please refresh the page.'
+        );
+        return false;
+      }
+
+      // Only resume if suspended
+      if (this.audioContext.state === 'suspended') {
+        try {
+          await this.audioContext.resume();
+          this.updateStatus('🎵 Audio resumed successfully!');
+          return true;
+        } catch (resumeError) {
+          console.error('Failed to resume audio context:', resumeError);
+          this.updateStatus(
+            '❌ Failed to resume audio. Please refresh the page.'
+          );
+          return false;
+        }
+      } else if (this.audioContext.state === 'running') {
+        // Already running
+        return true;
+      } else if (this.audioContext.state === 'closed') {
+        this.updateStatus('❌ Audio context closed. Please refresh the page.');
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Failed to resume audio context:', error);
       this.updateStatus('❌ Failed to resume audio. Please refresh the page.');
+      return false;
     }
   }
 
@@ -654,20 +692,49 @@ class DrumMachine {
     this.bindEvents();
 
     // Global audio context resume handler for better cross-platform support
-    const resumeAudioOnInteraction = async () => {
-      if (this.audioContext && this.audioContext.state === 'suspended') {
-        try {
-          await this.resumeAudioContext();
-          this.updateStatus('🎵 Audio enabled! Ready to create beats.');
-
-          // Remove the global handler once audio is resumed
-          document.removeEventListener('click', resumeAudioOnInteraction);
-          document.removeEventListener('touchstart', resumeAudioOnInteraction);
-          document.removeEventListener('keydown', resumeAudioOnInteraction);
-        } catch (error) {
-          console.error('Failed to resume audio on interaction:', error);
-          this.updateStatus('Failed to enable audio. Please refresh the page.');
+    const resumeAudioOnInteraction = async (event) => {
+      try {
+        // Skip if clicking on piano header (just UI toggle)
+        if (event.target.closest('#piano-header')) {
+          return;
         }
+
+        // Check if audio context exists and is in a valid state
+        if (!this.audioContext) {
+          console.warn('Audio context not available during interaction');
+          return;
+        }
+
+        // Only proceed if suspended
+        if (this.audioContext.state === 'suspended') {
+          const resumed = await this.resumeAudioContext();
+          if (resumed) {
+            this.updateStatus('🎵 Audio enabled! Loading piano samples...');
+
+            // Load piano samples after audio context is resumed
+            await this.loadPianoSamples();
+
+            this.updateStatus('🎵 Audio enabled! Ready to create beats.');
+
+            // Remove the global handler once audio is resumed
+            document.removeEventListener('click', resumeAudioOnInteraction);
+            document.removeEventListener(
+              'touchstart',
+              resumeAudioOnInteraction
+            );
+            document.removeEventListener('keydown', resumeAudioOnInteraction);
+          }
+        } else if (this.audioContext.state === 'running') {
+          // Audio already running, just load piano samples if needed
+          if (Object.keys(this.pianoSamples).length === 0) {
+            this.updateStatus('🎵 Loading piano samples...');
+            await this.loadPianoSamples();
+            this.updateStatus('🎵 Ready to create beats!');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resume audio on interaction:', error);
+        this.updateStatus('Failed to enable audio. Please refresh the page.');
       }
     };
 
@@ -866,6 +933,29 @@ class DrumMachine {
           // Collapse
           soundContent.classList.add('collapsed');
           expandIcon.classList.remove('expanded');
+          expandIcon.textContent = '▶️';
+        }
+      });
+    }
+
+    // Piano section header for collapsible functionality
+    const pianoHeader = document.getElementById('piano-header');
+    if (pianoHeader) {
+      pianoHeader.addEventListener('click', (event) => {
+        // Prevent this click from bubbling up to global handlers
+        event.stopPropagation();
+
+        const pianoContent = document.querySelector('.piano-content');
+        const expandIcon = pianoHeader.querySelector('.expand-icon');
+
+        if (pianoContent.classList.contains('collapsed')) {
+          // Expand
+          pianoContent.classList.remove('collapsed');
+          expandIcon.classList.add('expanded');
+          expandIcon.textContent = '🔽';
+        } else {
+          // Collapse
+          pianoContent.classList.add('collapsed');
           expandIcon.textContent = '▶️';
         }
       });
@@ -1770,6 +1860,492 @@ class DrumMachine {
       }
     } catch (error) {
       // Silent error handling
+    }
+  }
+
+  // Piano functionality
+  initPiano() {
+    this.pianoSamples = {};
+    // Don't load piano samples until user interaction (audio context is resumed)
+    this.createPianoKeys();
+    this.bindPianoEvents();
+  }
+
+  async loadPianoSamples() {
+    try {
+      this.updateStatus('🎹 Loading piano samples...');
+
+      // Wait a bit for the server to be ready
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Clear any existing samples to ensure clean loading
+      this.pianoSamples = {};
+
+      for (let i = 1; i <= 24; i++) {
+        const keyNum = i.toString().padStart(2, '0');
+        const audioBuffer = await this.loadPianoSampleWithRetry(
+          `sounds/piano/key${keyNum}.mp3`,
+          3
+        );
+        if (audioBuffer) {
+          this.pianoSamples[i] = audioBuffer;
+          // Update status to show progress
+          if (i % 6 === 0) {
+            // Update every 6 keys
+            this.updateStatus(`🎹 Loading piano samples... ${i}/24 loaded`);
+          }
+        } else {
+          console.warn(`Failed to load piano key ${i}: key${keyNum}.mp3`);
+          // Mark as failed to load so we can use synthesized fallback
+          this.pianoSamples[i] = null;
+        }
+      }
+      const loadedCount = Object.keys(this.pianoSamples).length;
+
+      if (loadedCount === 0) {
+        this.updateStatus(
+          '⚠️ Piano samples failed to load. Creating synthesized piano sounds...'
+        );
+        // Create synthesized piano sounds as fallback
+        await this.createSynthesizedPianoSounds();
+      } else {
+        this.updateStatus(`🎹 Piano ready with ${loadedCount} keys!`);
+
+        // Verify all keys have proper samples
+        const missingKeys = [];
+        for (let i = 1; i <= 24; i++) {
+          if (!this.pianoSamples[i]) {
+            missingKeys.push(i);
+          }
+        }
+
+        if (missingKeys.length > 0) {
+          console.warn(
+            `Piano keys with missing samples: ${missingKeys.join(', ')}`
+          );
+          this.updateStatus(
+            `🎹 Piano ready! ${loadedCount}/24 keys loaded (${missingKeys.length} using synthesized sounds)`
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load piano samples:', error);
+      this.updateStatus('⚠️ Failed to load piano samples');
+    }
+  }
+
+  async loadPianoSampleWithRetry(filePath, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const audioBuffer = await this.loadPianoSample(filePath);
+        if (audioBuffer) {
+          return audioBuffer;
+        }
+
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        }
+      } catch (error) {
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        }
+      }
+    }
+    return null;
+  }
+
+  async loadPianoSample(filePath) {
+    try {
+      const response = await fetch(filePath);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        return await this.audioContext.decodeAudioData(arrayBuffer);
+      }
+      return null;
+    } catch (error) {
+      console.error(`Error loading piano sample ${filePath}:`, error);
+      return null;
+    }
+  }
+
+  async createSynthesizedPianoSounds() {
+    try {
+      // Create synthesized piano sounds for all 24 keys
+      for (let i = 1; i <= 24; i++) {
+        const frequency = this.getPianoFrequency(i);
+        const audioBuffer = this.createSynthesizedPianoSound(frequency);
+        this.pianoSamples[i] = audioBuffer;
+      }
+      this.updateStatus('🎹 Piano ready with synthesized sounds!');
+      console.log('Created synthesized piano sounds for all keys');
+    } catch (error) {
+      console.error('Failed to create synthesized piano sounds:', error);
+      this.updateStatus('⚠️ Piano not available');
+    }
+  }
+
+  getPianoFrequency(keyIndex) {
+    // Piano frequency mapping (A4 = 440Hz)
+    const baseFrequencies = [
+      261.63,
+      277.18,
+      293.66,
+      311.13,
+      329.63,
+      349.23,
+      369.99,
+      392.0, // C4 to C5
+      415.3,
+      440.0,
+      466.16,
+      493.88,
+      523.25,
+      554.37,
+      587.33,
+      622.25, // C#5 to D#6
+      659.25,
+      698.46,
+      739.99,
+      783.99,
+      830.61,
+      880.0,
+      932.33,
+      987.77 // E6 to B6
+    ];
+    return baseFrequencies[keyIndex - 1] || 440;
+  }
+
+  createSynthesizedPianoSound(frequency) {
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = 0.5; // 0.5 seconds
+    const frameCount = sampleRate * duration;
+
+    const audioBuffer = this.audioContext.createBuffer(
+      1,
+      frameCount,
+      sampleRate
+    );
+    const channelData = audioBuffer.getChannelData(0);
+
+    for (let i = 0; i < frameCount; i++) {
+      const time = i / sampleRate;
+      const envelope = Math.exp(-time * 3); // Exponential decay
+      const wave = Math.sin(2 * Math.PI * frequency * time);
+      channelData[i] = wave * envelope * 0.3; // Reduce volume
+    }
+
+    return audioBuffer;
+  }
+
+  getWhiteKeyIndexForBlackKey(blackKeyIndex) {
+    // Map black key indices to the white key they should be positioned between
+    const blackToWhiteMap = {
+      2: 0, // C# goes between C (index 0) and D (index 1)
+      4: 1, // D# goes between D (index 1) and E (index 2)
+      7: 3, // F# goes between F (index 3) and G (index 4)
+      9: 4, // G# goes between G (index 4) and A (index 5)
+      11: 5, // A# goes between A (index 5) and B (index 6)
+      14: 7, // C# (second octave) goes between C (index 7) and D (index 8)
+      16: 8, // D# (second octave) goes between D (index 8) and E (index 9)
+      19: 10, // F# (second octave) goes between F (index 10) and G (index 11)
+      21: 11, // G# (second octave) goes between G (index 11) and A (index 12)
+      23: 12 // A# (second octave) goes between A (index 12) and B (index 13)
+    };
+    return blackToWhiteMap[blackKeyIndex] || 0;
+  }
+
+  createPianoKeys() {
+    const pianoKeysContainer = document.getElementById('piano-keys');
+    if (!pianoKeysContainer) return;
+
+    // Clear any existing keys
+    pianoKeysContainer.innerHTML = '';
+
+    // Piano key mapping: 24 keys (2 octaves) - keys follow piano order left to right
+    const keyMap = [
+      { note: 'C', key: 'Q', type: 'white', index: 1 },
+      { note: 'C#', key: 'A', type: 'black', index: 2 },
+      { note: 'D', key: 'W', type: 'white', index: 3 },
+      { note: 'D#', key: 'S', type: 'black', index: 4 },
+      { note: 'E', key: 'E', type: 'white', index: 5 },
+      { note: 'F', key: 'R', type: 'white', index: 6 },
+      { note: 'F#', key: 'D', type: 'black', index: 7 },
+      { note: 'G', key: 'T', type: 'white', index: 8 },
+      { note: 'G#', key: 'F', type: 'black', index: 9 },
+      { note: 'A', key: 'Y', type: 'white', index: 10 },
+      { note: 'A#', key: 'G', type: 'black', index: 11 },
+      { note: 'B', key: 'U', type: 'white', index: 12 },
+      { note: 'C', key: 'I', type: 'white', index: 13 },
+      { note: 'C#', key: 'J', type: 'black', index: 14 },
+      { note: 'D', key: 'O', type: 'white', index: 15 },
+      { note: 'D#', key: 'K', type: 'black', index: 16 },
+      { note: 'E', key: 'P', type: 'white', index: 17 },
+      { note: 'F', key: 'Z', type: 'white', index: 18 },
+      { note: 'F#', key: 'X', type: 'black', index: 19 },
+      { note: 'G', key: 'C', type: 'white', index: 20 },
+      { note: 'G#', key: 'V', type: 'black', index: 21 },
+      { note: 'A', key: 'B', type: 'white', index: 22 },
+      { note: 'A#', key: 'N', type: 'black', index: 23 },
+      { note: 'B', key: 'M', type: 'white', index: 24 }
+    ];
+
+    const isMobile = window.innerWidth <= 768;
+
+    // First pass: create all white keys to establish their positions
+    const whiteKeys = [];
+    keyMap.forEach(({ note, key, type, index }) => {
+      if (type === 'white') {
+        const keyElement = document.createElement('div');
+        keyElement.className = `piano-key ${type}`;
+        keyElement.dataset.note = note;
+        keyElement.dataset.key = key;
+        keyElement.dataset.index = index;
+
+        if (isMobile) {
+          // Mobile: only show note names, no keyboard symbols
+          keyElement.innerHTML = `<div>${note}</div>`;
+        } else {
+          // Desktop: show both note names and keyboard symbols
+          keyElement.innerHTML = `
+            <div>${note}</div>
+            <div class="piano-key-label">${key}</div>
+          `;
+        }
+
+        pianoKeysContainer.appendChild(keyElement);
+        whiteKeys.push(keyElement);
+      }
+    });
+
+    // Second pass: create black keys positioned between white keys
+    keyMap.forEach(({ note, key, type, index }) => {
+      if (type === 'black') {
+        const keyElement = document.createElement('div');
+        keyElement.className = `piano-key ${type}`;
+        keyElement.dataset.note = note;
+        keyElement.dataset.key = key;
+        keyElement.dataset.index = index;
+
+        if (isMobile) {
+          // Mobile: only show note names, no keyboard symbols
+          keyElement.innerHTML = `<div>${note}</div>`;
+        } else {
+          // Desktop: show both note names and keyboard symbols
+          keyElement.innerHTML = `
+            <div>${note}</div>
+            <div class="piano-key-label">${key}</div>
+          `;
+        }
+
+        // Position black key between the appropriate white keys
+        keyElement.style.position = 'absolute';
+
+        if (isMobile) {
+          // Mobile: position black keys at the "top" (right side) between white keys
+          const whiteKeyIndex = this.getWhiteKeyIndexForBlackKey(index);
+          // Calculate position based on white key height (40px) + gap (2px) = 42px total
+          const whiteKeyTop = whiteKeyIndex * 42;
+          // Position black keys at the right side (top of vertical keyboard) between white keys
+          keyElement.style.right = '0';
+          keyElement.style.top = `${whiteKeyTop + 35}px`; // Slightly offset from white key center
+        } else {
+          // Desktop: position black keys between white keys horizontally
+          const whiteKeyIndex = this.getWhiteKeyIndexForBlackKey(index);
+          const whiteKeyLeft = whiteKeyIndex * 50; // 50px width per white key
+          keyElement.style.left = `${whiteKeyLeft + 45}px`; // 45px from left edge of white key (perfectly centered between 2 white keys)
+          keyElement.style.top = '0';
+        }
+
+        pianoKeysContainer.appendChild(keyElement);
+      }
+    });
+  }
+
+  bindPianoEvents() {
+    // Mouse events
+    document.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('piano-key')) {
+        this.playPianoKey(e.target);
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (e.target.classList.contains('piano-key')) {
+        this.releasePianoKey(e.target);
+      }
+    });
+
+    // Touch events for multi-touch support
+    document.addEventListener(
+      'touchstart',
+      (e) => {
+        const touches = e.changedTouches;
+        let pianoKeyTouched = false;
+
+        for (let i = 0; i < touches.length; i++) {
+          const touch = touches[i];
+          const element = document.elementFromPoint(
+            touch.clientX,
+            touch.clientY
+          );
+          if (element && element.classList.contains('piano-key')) {
+            this.playPianoKey(element);
+            // Store touch ID for tracking
+            element.dataset.touchId = touch.identifier;
+            pianoKeyTouched = true;
+          }
+        }
+
+        // Only prevent default if we actually touched a piano key
+        if (pianoKeyTouched) {
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    document.addEventListener(
+      'touchend',
+      (e) => {
+        const touches = e.changedTouches;
+        let pianoKeyReleased = false;
+
+        for (let i = 0; i < touches.length; i++) {
+          const touch = touches[i];
+          const touchId = touch.identifier;
+          // Find all keys with this touch ID and release them
+          const keys = document.querySelectorAll(
+            `[data-touch-id="${touchId}"]`
+          );
+          if (keys.length > 0) {
+            keys.forEach((key) => {
+              this.releasePianoKey(key);
+              delete key.dataset.touchId;
+            });
+            pianoKeyReleased = true;
+          }
+        }
+
+        // Only prevent default if we actually released piano keys
+        if (pianoKeyReleased) {
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    document.addEventListener(
+      'touchcancel',
+      (e) => {
+        // Release all keys when touch is cancelled
+        const activeKeys = document.querySelectorAll('.piano-key.active');
+        if (activeKeys.length > 0) {
+          activeKeys.forEach((key) => {
+            this.releasePianoKey(key);
+            delete key.dataset.touchId;
+          });
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    // Keyboard events
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return; // Prevent key repeat
+
+      const keyElement = document.querySelector(
+        `[data-key="${e.key.toUpperCase()}"]`
+      );
+      if (keyElement) {
+        e.preventDefault();
+        this.playPianoKey(keyElement);
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      const keyElement = document.querySelector(
+        `[data-key="${e.key.toUpperCase()}"]`
+      );
+      if (keyElement) {
+        this.releasePianoKey(keyElement);
+      }
+    });
+
+    // Handle window resize for responsive piano layout
+    window.addEventListener('resize', () => {
+      // Debounce resize events
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = setTimeout(() => {
+        this.createPianoKeys();
+      }, 250);
+    });
+  }
+
+  playPianoKey(keyElement) {
+    const index = parseInt(keyElement.dataset.index);
+    let sample = this.pianoSamples[index];
+
+    if (!sample) {
+      // Check if we're still loading samples
+      if (Object.keys(this.pianoSamples).length === 0) {
+        this.updateStatus(
+          '🎹 Piano samples still loading... Please wait a moment.'
+        );
+        return;
+      }
+
+      // Check if this specific key failed to load
+      if (index in this.pianoSamples && this.pianoSamples[index] === null) {
+        // This key specifically failed to load, use synthesized sound
+        try {
+          const frequency = this.getPianoFrequency(index);
+          sample = this.createSynthesizedPianoSound(frequency);
+        } catch (error) {
+          this.updateStatus(
+            `⚠️ Piano key ${index} not available. Please refresh the page.`
+          );
+          return;
+        }
+      } else {
+        // Sample not loaded yet, wait for it
+        this.updateStatus(
+          `🎹 Loading piano key ${index}... Please wait a moment.`
+        );
+        return;
+      }
+    }
+
+    if (this.audioContext.state === 'running') {
+      // Add visual feedback
+      keyElement.classList.add('active');
+
+      // Play the sound
+      const source = this.audioContext.createBufferSource();
+      source.buffer = sample;
+      source.connect(this.audioContext.destination);
+      source.start();
+
+      // Store reference to stop if needed
+      keyElement.dataset.source = source;
+    } else {
+      this.updateStatus('🎵 Click anywhere to enable audio for piano');
+    }
+  }
+
+  releasePianoKey(keyElement) {
+    // Remove visual feedback
+    keyElement.classList.remove('active');
+
+    // Stop the sound if it's still playing
+    const source = keyElement.dataset.source;
+    if (source) {
+      try {
+        source.stop();
+      } catch (error) {
+        // Sound might have already finished
+      }
+      delete keyElement.dataset.source;
     }
   }
 }
