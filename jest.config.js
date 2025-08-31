@@ -1,22 +1,17 @@
-module.exports = {
-  // Test environment
-  testEnvironment: 'jsdom',
-
-  // Test timeout
-  testTimeout: 10000,
-
-  // Coverage configuration
-  collectCoverage: true,
+export default {
+  testEnvironment: 'node',
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  testMatch: ['<rootDir>/tests/**/*.test.js', '<rootDir>/tests/**/*.spec.js'],
+  collectCoverageFrom: [
+    'src/**/*.js',
+    '!src/**/*.test.js',
+    '!src/**/*.spec.js',
+    '!src/**/index.js'
+  ],
+  coverageReporters: ['text', 'lcov', 'html', 'clover'],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html']
-
-  // No coverage thresholds for now
-  // coverageThreshold: {
-  //   global: {
-  //     statements: 70,
-  //     branches: 70,
-  //     functions: 70,
-  //     lines: 70
-  //   }
-  // }
+  testTimeout: 10000,
+  moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
+  }
 };
