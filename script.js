@@ -25,7 +25,7 @@ class DrumMachine {
 
     // Mute state for each drum type
     this.mutedDrums = {};
-    this.drumTypes.forEach(type => {
+    this.drumTypes.forEach((type) => {
       this.mutedDrums[type] = false;
     });
 
@@ -42,12 +42,25 @@ class DrumMachine {
 
   async init() {
     try {
-      // Initialize audio context
+      // Initialize audio context with better cross-platform support
       this.audioContext = new (window.AudioContext ||
-        window.webkitAudioContext)();
+        window.webkitAudioContext)({
+        latencyHint: 'interactive',
+        sampleRate: 44100,
+        // Better compatibility for mobile and Linux
+        ...(navigator.userAgent.includes('Mobile') && {
+          latencyHint: 'balanced',
+          sampleRate: 22050
+        })
+      });
 
-      // Load samples
-      await this.loadSamples();
+      // Audio context starts suspended (normal behavior)
+      if (this.audioContext.state === 'suspended') {
+        this.updateStatus('🎵 Click anywhere to enable audio');
+      }
+
+      // Load samples with retry mechanism
+      await this.loadSamplesWithRetry();
 
       // Initialize sequencer
       this.initSequencer();
@@ -55,11 +68,17 @@ class DrumMachine {
       // Initialize UI
       this.initUI();
 
-      // Load from URL if present
-      this.loadFromURL();
+      // Load from URL if present, otherwise load last used beat from local storage
+      const urlParams = new URLSearchParams(window.location.search);
+      const beatParam = urlParams.get('beat');
 
-      // Load from local storage
-      this.loadFromLocalStorage();
+      if (beatParam) {
+        // URL parameter present - load from URL
+        this.loadFromURL();
+      } else {
+        // No URL parameter - load last used beat from local storage (if any)
+        this.loadLastUsedBeat();
+      }
 
       // Load saved theme
       this.loadTheme();
@@ -70,6 +89,12 @@ class DrumMachine {
       // Initialize mute buttons
       this.initMuteButtons();
 
+      // Update load button text to show beat count
+      this.updateLoadButtonText();
+
+      // Start periodic audio health check
+      this.startAudioHealthCheck();
+
       this.updateStatus('Ready to create beats!');
     } catch (error) {
       console.error('Failed to initialize drum machine:', error);
@@ -77,28 +102,139 @@ class DrumMachine {
     }
   }
 
-  async loadSamples() {
-    // Load local drum samples with fallback to synthesized sounds
-    const loadPromises = this.drumTypes.map(async type => {
+  startAudioHealthCheck() {
+    // Check audio context health every 10 seconds
+    setInterval(() => {
+      if (this.audioContext && this.audioContext.state === 'closed') {
+        this.updateStatus('Audio context closed. Please refresh the page.');
+      }
+      // Don't show warnings for suspended state - that's normal until user interaction
+    }, 10000);
+  }
+
+  async loadSamplesWithRetry(maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const audioBuffer = await loadSample(this.audioContext, type);
-        if (audioBuffer) {
-          this.samples[type] = audioBuffer;
-        } else {
-          // Fallback to synthesized sound if loading fails
-          console.warn(
-            `Using synthesized sound for ${type} - sample loading failed`
-          );
-          this.samples[type] = this.createSynthesizedSound(type);
+        this.updateStatus(
+          `Loading audio samples (attempt ${attempt}/${maxRetries})...`
+        );
+
+        // Don't try to resume audio context during initialization
+        // It will be resumed when user interacts with the page
+        if (this.audioContext.state === 'closed') {
+          throw new Error('Audio context is closed');
+        }
+
+        // Load local drum samples with fallback to synthesized sounds
+        const loadPromises = this.drumTypes.map(async (type) => {
+          try {
+            const audioBuffer = await loadSample(this.audioContext, type);
+            if (audioBuffer) {
+              this.samples[type] = audioBuffer;
+              return true;
+            } else {
+              // Fallback to synthesized sound if loading fails
+              console.warn(
+                `Using synthesized sound for ${type} - sample loading failed`
+              );
+              this.samples[type] = this.createSynthesizedSound(type);
+              return true;
+            }
+          } catch (error) {
+            console.error(`Failed to load ${type} sample:`, error);
+            // Fallback to synthesized sound
+            this.samples[type] = this.createSynthesizedSound(type);
+            return true;
+          }
+        });
+
+        const results = await Promise.all(loadPromises);
+
+        // Check if all samples loaded successfully
+        if (results.every((result) => result)) {
+          this.updateStatus('Audio samples loaded successfully!');
+          return;
         }
       } catch (error) {
-        console.error(`Failed to load ${type} sample:`, error);
-        // Fallback to synthesized sound
-        this.samples[type] = this.createSynthesizedSound(type);
-      }
-    });
+        console.error(`Sample loading attempt ${attempt} failed:`, error);
 
-    await Promise.all(loadPromises);
+        if (attempt === maxRetries) {
+          this.updateStatus(
+            'Failed to load audio samples. Using synthesized sounds.'
+          );
+          // Force fallback to synthesized sounds
+          this.drumTypes.forEach((type) => {
+            this.samples[type] = this.createSynthesizedSound(type);
+          });
+        } else {
+          // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+  }
+
+  async resumeAudioContext() {
+    try {
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+        this.updateStatus('🎵 Audio resumed successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to resume audio context:', error);
+      this.updateStatus('❌ Failed to resume audio. Please refresh the page.');
+    }
+  }
+
+  checkAudioContextHealth() {
+    if (!this.audioContext) {
+      return false;
+    }
+
+    switch (this.audioContext.state) {
+      case 'running':
+        return true;
+      case 'suspended':
+        this.updateStatus('Audio suspended. Click anywhere to enable.');
+        return false;
+      case 'closed':
+        this.updateStatus('Audio context closed. Please refresh the page.');
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  async restoreAudioContext() {
+    try {
+      if (this.audioContext.state === 'closed') {
+        // Create new audio context if the old one is closed
+        this.audioContext = new (window.AudioContext ||
+          window.webkitAudioContext)({
+          latencyHint: 'interactive',
+          sampleRate: 44100,
+          // Better compatibility for mobile and Linux
+          ...(navigator.userAgent.includes('Mobile') && {
+            latencyHint: 'balanced',
+            sampleRate: 22050
+          })
+        });
+
+        // Reload samples for the new context
+        await this.loadSamplesWithRetry(1);
+
+        this.updateStatus('Audio context restored. Please try again.');
+        return true;
+      } else if (this.audioContext.state === 'suspended') {
+        await this.resumeAudioContext();
+        return true;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to restore audio context:', error);
+      this.updateStatus('Failed to restore audio. Please refresh the page.');
+      return false;
+    }
   }
 
   // Method to change sound for a specific drum type
@@ -150,7 +286,7 @@ class DrumMachine {
     try {
       // Reset sound selections to defaults
       if (typeof SOUND_COLLECTIONS !== 'undefined') {
-        Object.keys(SOUND_COLLECTIONS).forEach(drumType => {
+        Object.keys(SOUND_COLLECTIONS).forEach((drumType) => {
           const defaultSound = SOUND_COLLECTIONS[drumType].default;
           if (typeof changeSound === 'function') {
             changeSound(drumType, defaultSound);
@@ -161,7 +297,7 @@ class DrumMachine {
         await this.loadSamples();
 
         // Refresh all sound selection UIs
-        this.drumTypes.forEach(drumType => {
+        this.drumTypes.forEach((drumType) => {
           this.populateSoundOptions(drumType);
         });
 
@@ -186,7 +322,7 @@ class DrumMachine {
 
   // Method to mute all drums
   muteAll() {
-    this.drumTypes.forEach(drumType => {
+    this.drumTypes.forEach((drumType) => {
       this.mutedDrums[drumType] = true;
       this.updateMuteButton(drumType);
     });
@@ -197,7 +333,7 @@ class DrumMachine {
 
   // Method to unmute all drums
   unmuteAll() {
-    this.drumTypes.forEach(drumType => {
+    this.drumTypes.forEach((drumType) => {
       this.mutedDrums[drumType] = false;
       this.updateMuteButton(drumType);
     });
@@ -244,7 +380,7 @@ class DrumMachine {
   updateMuteAllButton() {
     const muteAllBtn = document.getElementById('mute-all-btn');
     if (muteAllBtn) {
-      if (this.drumTypes.every(drumType => this.mutedDrums[drumType])) {
+      if (this.drumTypes.every((drumType) => this.mutedDrums[drumType])) {
         muteAllBtn.textContent = '🔊 Unmute All';
         muteAllBtn.title = 'Unmute all drums';
       } else {
@@ -273,7 +409,7 @@ class DrumMachine {
       if (saved) {
         const savedMuteState = JSON.parse(saved);
         // Merge with current drum types (in case new types were added)
-        this.drumTypes.forEach(drumType => {
+        this.drumTypes.forEach((drumType) => {
           if (Object.prototype.hasOwnProperty.call(savedMuteState, drumType)) {
             this.mutedDrums[drumType] = savedMuteState[drumType];
           }
@@ -286,7 +422,7 @@ class DrumMachine {
 
   // Method to initialize mute buttons with current state
   initMuteButtons() {
-    this.drumTypes.forEach(drumType => {
+    this.drumTypes.forEach((drumType) => {
       this.updateMuteButton(drumType);
     });
     this.updateMuteAllButton(); // Initialize the mute all button
@@ -502,7 +638,7 @@ class DrumMachine {
 
   initSequencer() {
     this.sequencer = {};
-    this.drumTypes.forEach(type => {
+    this.drumTypes.forEach((type) => {
       this.sequencer[type] = new Array(this.patternLength).fill(false);
     });
   }
@@ -517,21 +653,33 @@ class DrumMachine {
     // Event listeners
     this.bindEvents();
 
-    // Start audio context on first user interaction
-    document.addEventListener(
-      'click',
-      () => {
-        if (this.audioContext.state === 'suspended') {
-          this.audioContext.resume();
+    // Global audio context resume handler for better cross-platform support
+    const resumeAudioOnInteraction = async () => {
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        try {
+          await this.resumeAudioContext();
+          this.updateStatus('🎵 Audio enabled! Ready to create beats.');
+
+          // Remove the global handler once audio is resumed
+          document.removeEventListener('click', resumeAudioOnInteraction);
+          document.removeEventListener('touchstart', resumeAudioOnInteraction);
+          document.removeEventListener('keydown', resumeAudioOnInteraction);
+        } catch (error) {
+          console.error('Failed to resume audio on interaction:', error);
+          this.updateStatus('Failed to enable audio. Please refresh the page.');
         }
-      },
-      { once: true }
-    );
+      }
+    };
+
+    // Add multiple event listeners for better mobile/Linux support
+    document.addEventListener('click', resumeAudioOnInteraction);
+    document.addEventListener('touchstart', resumeAudioOnInteraction);
+    document.addEventListener('keydown', resumeAudioOnInteraction);
   }
 
   initSoundSelection() {
     // Populate sound selection UI for each drum type
-    this.drumTypes.forEach(drumType => {
+    this.drumTypes.forEach((drumType) => {
       this.populateSoundOptions(drumType);
     });
   }
@@ -548,7 +696,7 @@ class DrumMachine {
 
     container.innerHTML = '';
 
-    availableSounds.forEach(sound => {
+    availableSounds.forEach((sound) => {
       const option = document.createElement('div');
       option.className = 'sound-option';
       option.textContent = sound.name;
@@ -561,7 +709,7 @@ class DrumMachine {
       // Add click event to change sound
       option.addEventListener('click', async () => {
         // Remove current class from all options
-        container.querySelectorAll('.sound-option').forEach(opt => {
+        container.querySelectorAll('.sound-option').forEach((opt) => {
           opt.classList.remove('current');
         });
 
@@ -621,26 +769,28 @@ class DrumMachine {
       .addEventListener('click', () => this.clearPattern());
 
     // Tempo control
-    document.getElementById('tempo').addEventListener('input', e => {
+    document.getElementById('tempo').addEventListener('input', (e) => {
       this.tempo = parseInt(e.target.value);
       document.getElementById('tempo-display').textContent = this.tempo;
     });
 
     // Pattern length control
-    document.getElementById('pattern-length').addEventListener('change', e => {
-      this.patternLength = parseInt(e.target.value);
-      this.initSequencer();
-      this.generateGrid();
-      this.updateGridDisplay(); // Update the display after changing pattern length
-    });
+    document
+      .getElementById('pattern-length')
+      .addEventListener('change', (e) => {
+        this.patternLength = parseInt(e.target.value);
+        this.initSequencer();
+        this.generateGrid();
+        this.updateGridDisplay(); // Update the display after changing pattern length
+      });
 
     // Drum pad buttons
-    document.querySelectorAll('.drum-pad').forEach(pad => {
+    document.querySelectorAll('.drum-pad').forEach((pad) => {
       pad.addEventListener('click', () => this.playSound(pad.dataset.sound));
     });
 
     // Keyboard shortcuts
-    document.addEventListener('keydown', e => this.handleKeyPress(e));
+    document.addEventListener('keydown', (e) => this.handleKeyPress(e));
 
     // Share button
     document
@@ -651,6 +801,11 @@ class DrumMachine {
     document
       .getElementById('load-btn')
       .addEventListener('click', () => this.loadBeat());
+
+    // Load from URL button
+    document
+      .getElementById('load-url-btn')
+      .addEventListener('click', () => this.loadBeatFromURL());
 
     // Save local button
     document
@@ -669,7 +824,7 @@ class DrumMachine {
 
     // Mute all button
     document.getElementById('mute-all-btn').addEventListener('click', () => {
-      if (this.drumTypes.every(drumType => this.mutedDrums[drumType])) {
+      if (this.drumTypes.every((drumType) => this.mutedDrums[drumType])) {
         this.unmuteAll();
       } else {
         this.muteAll();
@@ -677,7 +832,7 @@ class DrumMachine {
     });
 
     // Individual mute buttons
-    document.querySelectorAll('.mute-btn').forEach(btn => {
+    document.querySelectorAll('.mute-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const drumType = btn.dataset.drum;
         this.toggleMute(drumType);
@@ -785,18 +940,40 @@ class DrumMachine {
     document.getElementById('play-btn').classList.remove('btn-primary');
 
     // Clear current step highlighting
-    document.querySelectorAll('.grid-cell.current').forEach(cell => {
+    document.querySelectorAll('.grid-cell.current').forEach((cell) => {
       cell.classList.remove('current');
     });
 
     this.updateStatus('Stopped');
   }
 
-  playStep() {
+  async playStep() {
     if (!this.isPlaying) return;
 
+    // Check audio context health before playing
+    if (this.audioContext.state === 'closed') {
+      // Stop playback if audio context is closed
+      this.stop();
+      this.updateStatus('Audio context closed. Please refresh the page.');
+      return;
+    }
+
+    // Resume audio context if suspended (allowed after user interaction)
+    if (this.audioContext.state === 'suspended') {
+      try {
+        await this.resumeAudioContext();
+      } catch (error) {
+        // Stop playback if we can't resume audio
+        this.stop();
+        this.updateStatus(
+          'Failed to resume audio. Please click anywhere to enable.'
+        );
+        return;
+      }
+    }
+
     // Clear previous current step
-    document.querySelectorAll('.grid-cell.current').forEach(cell => {
+    document.querySelectorAll('.grid-cell.current').forEach((cell) => {
       cell.classList.remove('current');
     });
 
@@ -811,7 +988,7 @@ class DrumMachine {
     });
 
     // Play sounds for current step
-    this.drumTypes.forEach(drumType => {
+    this.drumTypes.forEach((drumType) => {
       if (
         this.sequencer[drumType][this.currentStep] &&
         !this.mutedDrums[drumType]
@@ -823,33 +1000,70 @@ class DrumMachine {
     // Move to next step
     this.currentStep = (this.currentStep + 1) % this.patternLength;
 
-    // Schedule next step
+    // Schedule next step with better timing
     const stepTime = ((60 / this.tempo) * 4) / this.patternLength;
-    setTimeout(() => this.playStep(), stepTime * 1000);
+
+    // Use more precise timing for better cross-platform compatibility
+    try {
+      setTimeout(() => this.playStep(), stepTime * 1000);
+    } catch (error) {
+      console.error('Error scheduling next step:', error);
+      // Fallback to immediate execution if scheduling fails
+      this.playStep();
+    }
   }
 
-  playSound(drumType) {
+  async playSound(drumType) {
     if (!this.samples[drumType] || this.mutedDrums[drumType]) return;
 
-    const source = this.audioContext.createBufferSource();
-    const gainNode = this.audioContext.createGain();
+    try {
+      // Check if audio context is in error state
+      if (this.audioContext.state === 'closed') {
+        console.error('Audio context is closed');
+        this.updateStatus('Audio context error. Please refresh the page.');
+        return;
+      }
 
-    source.buffer = this.samples[drumType];
-    source.connect(gainNode);
+      // Resume audio context if suspended (this is allowed after user interaction)
+      if (this.audioContext.state === 'suspended') {
+        await this.resumeAudioContext();
+      }
 
-    // Route audio to both speakers and recording destination (if recording)
-    if (this.isRecording && this.recordingDestination) {
-      gainNode.connect(this.recordingDestination);
+      const source = this.audioContext.createBufferSource();
+      const gainNode = this.audioContext.createGain();
+
+      source.buffer = this.samples[drumType];
+      source.connect(gainNode);
+
+      // Route audio to both speakers and recording destination (if recording)
+      if (this.isRecording && this.recordingDestination) {
+        gainNode.connect(this.recordingDestination);
+      }
+      gainNode.connect(this.audioContext.destination);
+
+      // Add some variation to make it sound more natural
+      gainNode.gain.value = 0.7 + Math.random() * 0.3;
+
+      // Add error handling for source start
+      source.onerror = (error) => {
+        console.error('Audio source error:', error);
+        this.updateStatus('Audio playback error. Please try again.');
+      };
+
+      source.start();
+
+      // Record the drum hit if recording is active
+      this.recordDrumHit(drumType);
+    } catch (error) {
+      console.error('Error playing sound:', error);
+
+      // Try to recover audio context
+      if (this.audioContext.state === 'suspended') {
+        this.updateStatus('Audio suspended. Click anywhere to enable.');
+      } else {
+        this.updateStatus('Audio error. Please refresh the page.');
+      }
     }
-    gainNode.connect(this.audioContext.destination);
-
-    // Add some variation to make it sound more natural
-    gainNode.gain.value = 0.7 + Math.random() * 0.3;
-
-    source.start();
-
-    // Record the drum hit if recording is active
-    this.recordDrumHit(drumType);
   }
 
   // Recording functionality
@@ -872,7 +1086,7 @@ class DrumMachine {
       });
 
       // Collect audio chunks
-      this.mediaRecorder.ondataavailable = event => {
+      this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
@@ -945,7 +1159,7 @@ class DrumMachine {
 
     // Stop all tracks in the stream
     if (this.mediaRecorder && this.mediaRecorder.stream) {
-      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      this.mediaRecorder.stream.getTracks().forEach((track) => track.stop());
     }
   }
 
@@ -1091,34 +1305,112 @@ class DrumMachine {
   }
 
   shareBeat() {
-    const beatData = {
-      sequencer: this.sequencer,
-      tempo: this.tempo,
-      patternLength: this.patternLength
-    };
+    try {
+      // Create optimized beat data with only non-default values
+      const optimizedBeatData = this.createOptimizedBeatData();
 
-    const encoded = btoa(JSON.stringify(beatData));
-    const url = `${window.location.origin}${window.location.pathname}?beat=${encoded}`;
+      // Always include at least an empty sequencer to ensure the URL is valid
+      if (!optimizedBeatData.sequencer) {
+        optimizedBeatData.sequencer = {};
+      }
 
-    // Copy to clipboard
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        this.updateStatus('Beat URL copied to clipboard!');
-      })
-      .catch(() => {
+      const encoded = btoa(JSON.stringify(optimizedBeatData));
+      const url = `${window.location.origin}${window.location.pathname}?beat=${encoded}`;
+
+      console.log('Sharing beat URL:', url); // Debug log
+      console.log('Optimized beat data:', optimizedBeatData); // Debug log
+
+      // Copy to clipboard
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            this.updateStatus('Beat URL copied to clipboard!');
+          })
+          .catch((error) => {
+            console.error('Clipboard API failed:', error);
+            // Fallback for older browsers
+            this.fallbackCopyToClipboard(url);
+          });
+      } else {
         // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+        this.fallbackCopyToClipboard(url);
+      }
+    } catch (error) {
+      console.error('Error in shareBeat:', error);
+      this.updateStatus('Error creating share URL');
+    }
+  }
+
+  fallbackCopyToClipboard(text) {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      if (successful) {
         this.updateStatus('Beat URL copied to clipboard!');
-      });
+      } else {
+        this.updateStatus('Failed to copy URL. Please copy manually: ' + text);
+      }
+    } catch (error) {
+      console.error('Fallback copy failed:', error);
+      this.updateStatus('Failed to copy URL. Please copy manually: ' + text);
+    }
+  }
+
+  createOptimizedBeatData() {
+    const optimizedData = {};
+
+    // Only include tempo if it's different from default (120)
+    if (this.tempo !== 120) {
+      optimizedData.tempo = this.tempo;
+    }
+
+    // Only include pattern length if it's different from default (16)
+    if (this.patternLength !== 16) {
+      optimizedData.patternLength = this.patternLength;
+    }
+
+    // Only include sequencer data for drums that have non-false values
+    const optimizedSequencer = {};
+    this.drumTypes.forEach((drumType) => {
+      const pattern = this.sequencer[drumType];
+      const hasTrueValues = pattern.some((step) => step === true);
+
+      if (hasTrueValues) {
+        // Only include the true values with their positions
+        const trueSteps = [];
+        pattern.forEach((step, index) => {
+          if (step === true) {
+            trueSteps.push(index);
+          }
+        });
+        optimizedSequencer[drumType] = trueSteps;
+      }
+    });
+
+    // Only include sequencer if there are any true values
+    if (Object.keys(optimizedSequencer).length > 0) {
+      optimizedData.sequencer = optimizedSequencer;
+    }
+
+    return optimizedData;
   }
 
   loadBeat() {
+    // Load from local storage instead of prompting for URL
+    this.loadFromLocalStorage();
+  }
+
+  loadBeatFromURL() {
     const url = prompt('Paste the beat URL here:');
     if (url) {
       try {
@@ -1127,7 +1419,7 @@ class DrumMachine {
         if (beatParam) {
           const decoded = JSON.parse(atob(beatParam));
           this.loadBeatData(decoded);
-          this.updateStatus('Beat loaded successfully!');
+          this.updateStatus('Beat loaded successfully from URL!');
         }
       } catch (error) {
         this.updateStatus('Invalid beat URL');
@@ -1136,27 +1428,70 @@ class DrumMachine {
   }
 
   loadBeatData(data) {
+    // Handle optimized sequencer data (only true values) or legacy format (full arrays)
     if (data.sequencer) {
       // Ensure all current drum types exist in the loaded sequencer
-      this.drumTypes.forEach(drumType => {
+      this.drumTypes.forEach((drumType) => {
         if (!data.sequencer[drumType]) {
-          data.sequencer[drumType] = new Array(this.patternLength).fill(false);
+          // Initialize with all false values
+          this.sequencer[drumType] = new Array(this.patternLength).fill(false);
+        } else if (Array.isArray(data.sequencer[drumType])) {
+          // Check if this is optimized format (array of step indices) or legacy format (array of booleans)
+          if (
+            data.sequencer[drumType].length > 0 &&
+            typeof data.sequencer[drumType][0] === 'number'
+          ) {
+            // Optimized format: array of step indices where drum hits occur
+            const optimizedPattern = new Array(this.patternLength).fill(false);
+            data.sequencer[drumType].forEach((stepIndex) => {
+              if (stepIndex >= 0 && stepIndex < this.patternLength) {
+                optimizedPattern[stepIndex] = true;
+              }
+            });
+            this.sequencer[drumType] = optimizedPattern;
+          } else {
+            // Legacy format: array of booleans
+            this.sequencer[drumType] = data.sequencer[drumType];
+          }
         }
       });
-      this.sequencer = data.sequencer;
     }
-    if (data.tempo) {
+
+    // Load tempo (default to 120 if not specified)
+    if (data.tempo !== undefined) {
       this.tempo = data.tempo;
       document.getElementById('tempo').value = this.tempo;
       document.getElementById('tempo-display').textContent = this.tempo;
     }
-    if (data.patternLength) {
+
+    // Load pattern length (default to 16 if not specified)
+    if (data.patternLength !== undefined) {
       this.patternLength = data.patternLength;
       document.getElementById('pattern-length').value = this.patternLength;
       this.generateGrid();
     }
 
     this.updateGridDisplay();
+
+    // Update last used timestamp for this beat if it's from local storage
+    if (data.name && data.timestamp) {
+      this.updateBeatLastUsed(data.name);
+    }
+  }
+
+  updateBeatLastUsed(beatName) {
+    try {
+      const storedBeats = this.getStoredBeats();
+      const beatIndex = storedBeats.findIndex((beat) => beat.name === beatName);
+
+      if (beatIndex !== -1) {
+        // Update the last used timestamp
+        storedBeats[beatIndex].lastUsed = Date.now();
+        localStorage.setItem('drumMachineBeats', JSON.stringify(storedBeats));
+      }
+    } catch (error) {
+      console.error('Failed to update beat last used timestamp:', error);
+    }
   }
 
   loadFromURL() {
@@ -1167,7 +1502,7 @@ class DrumMachine {
       try {
         const decoded = JSON.parse(atob(beatParam));
         this.loadBeatData(decoded);
-        this.updateStatus('Beat loaded from URL');
+        this.updateStatus('Beat loaded from shared URL');
       } catch (error) {
         // Silent error handling
       }
@@ -1175,30 +1510,192 @@ class DrumMachine {
   }
 
   saveToLocalStorage() {
-    const beatData = {
-      sequencer: this.sequencer,
-      tempo: this.tempo,
-      patternLength: this.patternLength,
-      timestamp: Date.now()
-    };
+    // Get beat name from user
+    const beatName = prompt('Enter a name for this beat:');
+    if (!beatName || beatName.trim() === '') {
+      this.updateStatus('Beat name is required');
+      return;
+    }
 
-    localStorage.setItem('drumMachineBeat', JSON.stringify(beatData));
-    this.updateStatus('Beat saved to local storage');
+    // Use the same optimized format for local storage
+    const beatData = this.createOptimizedBeatData();
+    beatData.name = beatName.trim();
+    beatData.timestamp = Date.now();
+    beatData.date = new Date().toISOString();
+
+    // Get existing beats
+    const existingBeats = this.getStoredBeats();
+
+    // Check if name already exists
+    const existingIndex = existingBeats.findIndex(
+      (beat) => beat.name === beatData.name
+    );
+    if (existingIndex !== -1) {
+      const overwrite = confirm(
+        `A beat named "${beatData.name}" already exists. Do you want to overwrite it?`
+      );
+      if (!overwrite) {
+        this.updateStatus('Save cancelled');
+        return;
+      }
+      // Replace existing beat
+      existingBeats[existingIndex] = beatData;
+    } else {
+      // Add new beat
+      existingBeats.push(beatData);
+    }
+
+    // Save updated beats list
+    localStorage.setItem('drumMachineBeats', JSON.stringify(existingBeats));
+    this.updateStatus(`Beat "${beatData.name}" saved successfully!`);
+
+    // Update the load button to show beat count
+    this.updateLoadButtonText();
+  }
+
+  getStoredBeats() {
+    try {
+      const stored = localStorage.getItem('drumMachineBeats');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to load stored beats:', error);
+      return [];
+    }
+  }
+
+  loadLastUsedBeat() {
+    const storedBeats = this.getStoredBeats();
+
+    if (storedBeats.length === 0) {
+      // No saved beats - just continue with default
+      return;
+    }
+
+    // Find the most recently used beat (highest lastUsed timestamp, fallback to creation timestamp)
+    const lastUsedBeat = storedBeats.reduce((latest, current) => {
+      const currentLastUsed = current.lastUsed || current.timestamp || 0;
+      const latestLastUsed = latest.lastUsed || latest.timestamp || 0;
+      return currentLastUsed > latestLastUsed ? current : latest;
+    });
+
+    if (lastUsedBeat) {
+      // Load the last used beat silently during initialization
+      this.loadBeatData(lastUsedBeat);
+      // Don't show status message during initialization
+    }
   }
 
   loadFromLocalStorage() {
-    const saved = localStorage.getItem('drumMachineBeat');
-    if (saved) {
-      try {
-        const beatData = JSON.parse(saved);
-        this.loadBeatData(beatData);
-        this.updateStatus('Beat loaded from local storage');
-      } catch (error) {
-        console.error('Failed to load from local storage:', error);
-        // Clear corrupted data
-        localStorage.removeItem('drumMachineBeat');
-        this.updateStatus('Corrupted beat data cleared');
+    const storedBeats = this.getStoredBeats();
+
+    if (storedBeats.length === 0) {
+      this.updateStatus('No saved beats found');
+      return;
+    }
+
+    // Create beat selection dialog
+    this.showBeatSelectionDialog(storedBeats);
+  }
+
+  showBeatSelectionDialog(beats) {
+    // Create modal dialog
+    const modal = document.createElement('div');
+    modal.className = 'beat-selection-modal';
+    modal.innerHTML = `
+      <div class="beat-selection-content">
+        <h3>Select a Beat to Load</h3>
+        <div class="beat-list">
+          ${beats
+            .map(
+              (beat, index) => `
+            <div class="beat-item" data-index="${index}">
+              <div class="beat-info">
+                <div class="beat-name">${beat.name}</div>
+                <div class="beat-date">${new Date(beat.date).toLocaleString()}</div>
+                <div class="beat-details">
+                  ${beat.tempo ? `Tempo: ${beat.tempo} BPM` : 'Default tempo (120 BPM)'} | 
+                  ${beat.patternLength ? `${beat.patternLength} steps` : 'Default 16 steps'} |
+                  ${beat.sequencer ? `${Object.keys(beat.sequencer).length} drum tracks` : 'Empty pattern'}
+                </div>
+              </div>
+              <div class="beat-actions">
+                <button class="btn btn-small btn-primary load-beat-btn">Load</button>
+                <button class="btn btn-small btn-danger delete-beat-btn">Delete</button>
+              </div>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+        <div class="beat-selection-footer">
+          <button class="btn btn-secondary" id="cancel-load-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    // Add modal to page
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        this.closeBeatSelectionDialog();
       }
+    });
+
+    // Load beat buttons
+    modal.querySelectorAll('.load-beat-btn').forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        this.loadBeatData(beats[index]);
+        this.updateStatus(`Beat "${beats[index].name}" loaded successfully!`);
+        this.closeBeatSelectionDialog();
+      });
+    });
+
+    // Delete beat buttons
+    modal.querySelectorAll('.delete-beat-btn').forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        const beatName = beats[index].name;
+        if (confirm(`Are you sure you want to delete "${beatName}"?`)) {
+          this.deleteStoredBeat(index);
+          this.closeBeatSelectionDialog();
+        }
+      });
+    });
+
+    // Cancel button
+    modal.querySelector('#cancel-load-btn').addEventListener('click', () => {
+      this.closeBeatSelectionDialog();
+    });
+  }
+
+  closeBeatSelectionDialog() {
+    const modal = document.querySelector('.beat-selection-modal');
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  deleteStoredBeat(index) {
+    const storedBeats = this.getStoredBeats();
+    const deletedBeat = storedBeats[index];
+
+    storedBeats.splice(index, 1);
+    localStorage.setItem('drumMachineBeats', JSON.stringify(storedBeats));
+
+    this.updateStatus(`Beat "${deletedBeat.name}" deleted successfully!`);
+    this.updateLoadButtonText();
+  }
+
+  updateLoadButtonText() {
+    const loadBtn = document.getElementById('load-btn');
+    const storedBeats = this.getStoredBeats();
+    const count = storedBeats.length;
+
+    if (count === 0) {
+      loadBtn.textContent = '📥 Load Beat';
+    } else {
+      loadBtn.textContent = `📥 Load Beat (${count})`;
     }
   }
 
@@ -1256,7 +1753,7 @@ class DrumMachine {
       // Listen for system theme changes
       if (window.matchMedia) {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        mediaQuery.addEventListener('change', e => {
+        mediaQuery.addEventListener('change', (e) => {
           // Only auto-update if user hasn't manually set a theme
           if (!localStorage.getItem('drumMachineTheme')) {
             const newTheme = e.matches ? 'dark' : 'light';

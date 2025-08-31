@@ -159,7 +159,7 @@ global.createMockElement = (tagName, attributes = {}) => {
   };
 
   // Mock getAttribute and setAttribute
-  element.getAttribute = jest.fn(name => element.dataset[name] || null);
+  element.getAttribute = jest.fn((name) => element.dataset[name] || null);
   element.setAttribute = jest.fn((name, value) => {
     element.dataset[name] = value;
   });
@@ -172,14 +172,14 @@ global.createMockDOM = () => {
   const mockDOM = {
     body: global.createMockElement('body'),
     documentElement: global.createMockElement('html'),
-    createElement: jest.fn(tagName => global.createMockElement(tagName)),
+    createElement: jest.fn((tagName) => global.createMockElement(tagName)),
     getElementById: jest.fn(),
     querySelector: jest.fn(),
     querySelectorAll: jest.fn(() => [])
   };
 
   // Set up common elements
-  mockDOM.getElementById.mockImplementation(id => {
+  mockDOM.getElementById.mockImplementation((id) => {
     const element = global.createMockElement('div', { id });
     mockDOM[id] = element;
     return element;
@@ -202,7 +202,7 @@ beforeEach(() => {
   global.document = global.createMockDOM();
 
   // Mock common DOM methods
-  global.document.createElement = jest.fn(tagName =>
+  global.document.createElement = jest.fn((tagName) =>
     global.createMockElement(tagName)
   );
   global.document.body.appendChild = jest.fn();

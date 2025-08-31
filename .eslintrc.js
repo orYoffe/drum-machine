@@ -9,6 +9,7 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module'
   },
+  ignorePatterns: ['sounds/**/*', 'node_modules/**/*', 'coverage/**/*'],
   rules: {
     // Core rules
     'no-unused-vars': 'warn',
