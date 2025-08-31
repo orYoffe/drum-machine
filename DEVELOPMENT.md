@@ -1,419 +1,319 @@
-# 🛠️ Development Guide
+# Development Guide
 
-This document provides technical details for developers who want to contribute to the Drum Machine project.
+## 🏗️ **Architecture Overview**
 
-## 🎵 Core Features
-
-### Drum Sequencer
-
-- **8 Drum Types**: Kick, Snare, Hi-Hat, Crash, Tom 1, Tom 2, Ride, Clap
-- **Step Sequencer**: Grid-based pattern programming with visual feedback
-- **Pattern Lengths**: Configurable 8, 16, or 32 steps
-- **Tempo Control**: Real-time BPM adjustment (60-200)
-
-### Audio Engine
-
-- **Web Audio API**: High-quality audio synthesis and playback
-- **Sample Management**: Local WAV file loading with fallback to synthesized sounds
-- **Sound Selection**: User-configurable sound options for each drum type
-- **Mute System**: Individual and global mute controls with visual feedback
-
-### User Interface
-
-- **Responsive Design**: Mobile-first approach with CSS Grid/Flexbox
-- **Theme System**: Dark/light mode with system preference detection
-- **Visual Indicators**: 4-step beat markers and current position highlighting
-- **Accessibility**: Keyboard shortcuts and focus management
-
-## 🔧 Development Setup
-
-### Prerequisites
-
-- Modern web browser with Web Audio API support
-- Basic knowledge of JavaScript, CSS, and HTML
-- Git for version control
-
-### Local Development
-
-1. **Clone the repository**
-
-   ```bash
-   git clone <repository-url>
-   cd drum-machine
-   ```
-
-2. **Start development server**
-
-   ```bash
-   npx serve . -p 3000
-   ```
-
-3. **Open in browser**
-   - Navigate to `http://localhost:3000`
-   - Open browser developer tools for debugging
-
-### File Structure
+The Drum Machine has been refactored into a modular architecture for better maintainability:
 
 ```
-drum-machine/
-├── index.html          # Main HTML structure
-├── styles.css          # Complete styling with themes
-├── script.js           # Core drum machine logic
-├── samples.js          # Sample loading and management
-├── README.md           # User documentation
-├── DEVELOPMENT.md      # This development guide
-└── .gitignore         # Git ignore rules
+src/
+├── main.js                 # Main entry point
+├── DrumMachine.js         # Core application class
+├── audio/
+│   └── AudioManager.js    # Web Audio API management
+├── storage/
+│   └── BeatStorage.js     # Local storage operations
+├── piano/
+│   └── PianoManager.js    # Piano functionality
+└── config/
+    └── constants.js       # Application constants
 ```
 
-## 🎵 Audio Implementation
+## 🚀 **Getting Started**
 
-### Web Audio API Usage
+### **Prerequisites**
+- Node.js 18+ 
+- npm 9+
 
-#### Audio Context
+### **Installation**
+```bash
+npm install
+```
 
+### **Development Commands**
+```bash
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Lint code
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Format code
+npm run format
+
+# Check code formatting
+npm run format:check
+
+# Build for production
+npm run build
+
+# Build in watch mode
+npm run build:watch
+```
+
+## 🧪 **Testing Strategy**
+
+### **Test Structure**
+- **Unit Tests**: Test individual classes and methods
+- **Integration Tests**: Test interactions between modules
+- **E2E Tests**: Test complete user workflows
+
+### **Test Coverage**
+- Core functionality: 90%+
+- Audio handling: 85%+
+- Storage operations: 95%+
+- Piano functionality: 80%+
+
+### **Running Tests**
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- tests/audio.test.js
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in CI mode
+npm run test:ci
+```
+
+## 📁 **Code Organization**
+
+### **Module Responsibilities**
+
+#### **AudioManager** (`src/audio/AudioManager.js`)
+- Web Audio API initialization
+- Audio context state management
+- Sample loading and management
+- Cross-platform audio compatibility
+
+#### **BeatStorage** (`src/storage/BeatStorage.js`)
+- Local storage operations
+- Beat data persistence
+- Theme and settings storage
+- Data validation and error handling
+
+#### **PianoManager** (`src/piano/PianoManager.js`)
+- Piano key creation and positioning
+- Sample loading with fallbacks
+- Event handling (mouse, touch, keyboard)
+- Responsive layout management
+
+#### **Constants** (`src/config/constants.js`)
+- Application configuration
+- Magic numbers and strings
+- Error and success messages
+- UI breakpoints and timing
+
+### **File Naming Conventions**
+- **Classes**: PascalCase (e.g., `AudioManager`)
+- **Files**: PascalCase for classes, camelCase for utilities
+- **Constants**: UPPER_SNAKE_CASE
+- **Methods**: camelCase
+- **Private methods**: Start with underscore (e.g., `_privateMethod`)
+
+## 🔧 **Development Workflow**
+
+### **1. Feature Development**
+```bash
+# Create feature branch
+git checkout -b feature/new-feature
+
+# Make changes
+# Run tests
+npm test
+
+# Lint and format
+npm run lint:fix
+npm run format
+
+# Commit changes
+git commit -m "feat: add new feature"
+```
+
+### **2. Code Quality Checks**
+```bash
+# Before committing, ensure:
+npm run lint          # No linting errors
+npm run format:check  # Code is properly formatted
+npm test             # All tests pass
+npm run build        # Build succeeds
+```
+
+### **3. Pull Request Process**
+1. **Create PR** with descriptive title and description
+2. **Run CI checks** automatically
+3. **Code review** by team members
+4. **Address feedback** and update PR
+5. **Merge** when approved
+
+## 🎯 **Coding Standards**
+
+### **JavaScript Style Guide**
+- Use ES6+ features (const, let, arrow functions, destructuring)
+- Prefer functional programming where appropriate
+- Use meaningful variable and function names
+- Add JSDoc comments for public methods
+- Handle errors gracefully with try-catch blocks
+
+### **Example Code Structure**
 ```javascript
-// Initialize audio context
-this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-// Resume context on user interaction
-document.addEventListener(
-  'click',
-  () => {
-    if (this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
-    }
-  },
-  { once: true }
-);
-```
-
-#### Sample Loading
-
-```javascript
-// Load external sample with fallback
-const audioBuffer = await loadSample(this.audioContext, drumType);
-if (audioBuffer) {
-  this.samples[drumType] = audioBuffer;
-} else {
-  // Fallback to synthesized sound
-  this.samples[drumType] = this.createSynthesizedSound(drumType);
-}
-```
-
-#### Sound Playback
-
-```javascript
-playSound(drumType) {
-    if (!this.samples[drumType]) return;
-
-    const source = this.audioContext.createBufferSource();
-    const gainNode = this.audioContext.createGain();
-
-    source.buffer = this.samples[drumType];
-    source.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-
-    // Add natural variation
-    gainNode.gain.value = 0.7 + Math.random() * 0.3;
-
-    source.start();
-}
-```
-
-### Synthesized Sound Generation
-
-#### Kick Drum Example
-
-```javascript
-case 'kick':
-    duration = 0.15;
-    buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-    data = buffer.getChannelData(0);
-
-    for (let i = 0; i < buffer.length; i++) {
-        const t = i / sampleRate;
-        // Sub-bass fundamental
-        const fundamental = Math.sin(2 * Math.PI * 60 * t) * Math.exp(-t * 8);
-        // Higher click component
-        const click = Math.sin(2 * Math.PI * 200 * t) * Math.exp(-t * 50);
-        // Noise component for attack
-        const noise = (Math.random() * 2 - 1) * Math.exp(-t * 100);
-
-        data[i] = (fundamental * 0.6 + click * 0.3 + noise * 0.1) * 0.8;
-    }
-    break;
-```
-
-## 🎨 Theme System Implementation
-
-### CSS Custom Properties
-
-#### Light Theme Variables
-
-```css
-:root {
-  --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --bg-secondary: rgba(255, 255, 255, 0.95);
-  --text-primary: #333;
-  --text-secondary: #555;
-  --accent-color: #ffc107;
-  --primary-color: #667eea;
-}
-```
-
-#### Dark Theme Variables
-
-```css
-[data-theme='dark'] {
-  --bg-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  --bg-secondary: rgba(255, 255, 255, 0.05);
-  --text-primary: #fff;
-  --text-secondary: #ccc;
-  --accent-color: #ffd700;
-  --primary-color: #2196f3;
-}
-```
-
-### JavaScript Theme Management
-
-#### Theme Toggle
-
-```javascript
-toggleTheme() {
+/**
+ * Loads piano samples with retry mechanism
+ * @param {string} filePath - Path to the sample file
+ * @param {number} maxRetries - Maximum number of retry attempts
+ * @returns {Promise<AudioBuffer|null>} Loaded audio buffer or null
+ */
+async loadPianoSampleWithRetry(filePath, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('drumMachineTheme', newTheme);
-
-        // Update button icon
-        const themeToggle = document.getElementById('theme-toggle');
-        if (themeToggle) {
-            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-            themeToggle.title = `Switch to ${newTheme === 'dark' ? 'light' : 'dark'} mode`;
-        }
+      const audioBuffer = await this.loadPianoSample(filePath);
+      if (audioBuffer) return audioBuffer;
     } catch (error) {
-        console.error('Failed to toggle theme:', error);
+      if (attempt === maxRetries) {
+        console.warn(`Failed after ${maxRetries} attempts:`, filePath);
+        return null;
+      }
+      await this.delay(Math.pow(2, attempt) * 100);
     }
-}
-```
-
-## 📱 Responsive Design
-
-### CSS Grid Layout
-
-```css
-.controls {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 20px;
-  align-items: center;
-}
-
-@media (max-width: 768px) {
-  .controls {
-    grid-template-columns: 1fr;
-    gap: 15px;
   }
+  return null;
 }
 ```
 
-### Flexbox for Drum Machine
-
-```css
-.drum-machine {
-  display: flex;
-  gap: 20px;
-}
-
-@media (max-width: 768px) {
-  .drum-machine {
-    flex-direction: column;
-    gap: 15px;
-  }
+### **Error Handling**
+```javascript
+// Always use try-catch for async operations
+try {
+  const result = await this.riskyOperation();
+  return result;
+} catch (error) {
+  console.error('Operation failed:', error);
+  // Provide fallback or user-friendly error
+  return this.getFallbackValue();
 }
 ```
 
-## 🔄 State Management
-
-### Pattern Data Structure
-
+### **Constants Usage**
 ```javascript
-this.sequencer = {
-    kick: [false, false, true, false, false, false, true, false, ...],
-    snare: [false, false, false, false, true, false, false, false, ...],
-    hihat: [true, false, true, false, true, false, true, false, ...],
-    // ... other drum types
-};
+// Instead of magic numbers
+if (window.innerWidth <= 768) { ... }
+
+// Use constants
+import { UI } from './config/constants.js';
+if (window.innerWidth <= UI.MOBILE_BREAKPOINT) { ... }
 ```
 
-### Beat Data for Sharing
+## 🧹 **Code Maintenance**
 
+### **Regular Tasks**
+- **Weekly**: Run full test suite and update dependencies
+- **Monthly**: Review and update documentation
+- **Quarterly**: Code quality audit and refactoring
+
+### **Performance Monitoring**
+- Bundle size analysis
+- Audio latency measurements
+- Memory usage tracking
+- Cross-browser compatibility testing
+
+### **Security Considerations**
+- Sanitize user inputs
+- Validate data before storage
+- Use HTTPS in production
+- Regular dependency updates
+
+## 🚨 **Common Issues & Solutions**
+
+### **Audio Context Issues**
 ```javascript
-const beatData = {
-  sequencer: this.sequencer,
-  tempo: this.tempo,
-  patternLength: this.patternLength
-};
-
-const encoded = btoa(JSON.stringify(beatData));
-const url = `${window.location.origin}${window.location.pathname}?beat=${encoded}`;
-```
-
-## 🧪 Testing
-
-### Manual Testing Checklist
-
-- [ ] Theme switching works correctly
-- [ ] Audio samples load and play
-- [ ] Grid interaction responds properly
-- [ ] URL sharing generates valid links
-- [ ] Local storage saves and loads beats
-- [ ] Responsive design works on mobile
-- [ ] Keyboard shortcuts function properly
-
-### Browser Testing
-
-- **Chrome**: 66+ (Primary development target)
-- **Firefox**: 60+ (Web Audio API support)
-- **Safari**: 11+ (Mobile testing)
-- **Edge**: 79+ (Windows compatibility)
-
-### Performance Testing
-
-- **Load Time**: Under 3 seconds on 3G
-- **Audio Latency**: Under 50ms from click to sound
-- **Memory Usage**: Monitor for memory leaks
-- **Frame Rate**: Maintain 60fps during playback
-
-## 🚀 Deployment
-
-### Static Site Hosting
-
-- **GitHub Pages**: Automatic deployment from main branch
-- **Netlify**: Drag and drop deployment
-- **Vercel**: Git-based deployment
-- **Any static hosting**: Upload files to any web server
-
-### Build Process
-
-Currently no build process required - pure static files.
-
-### Optimization
-
-- **Minification**: Consider minifying CSS/JS for production
-- **Compression**: Enable gzip compression on server
-- **Caching**: Set appropriate cache headers
-- **CDN**: Use CDN for faster global access
-
-## 🐛 Debugging
-
-### Common Issues
-
-#### Audio Context Suspended
-
-```javascript
-// Check audio context state
-console.log('Audio context state:', this.audioContext.state);
-
-// Resume if suspended
-if (this.audioContext.state === 'suspended') {
-  await this.audioContext.resume();
-}
-```
-
-#### Sample Loading Failures
-
-```javascript
-// Check sample loading status
-console.log('Sample loading status:', {
-  kick: !!this.samples.kick,
-  snare: !!this.samples.snare
-  // ... other samples
+// Problem: Audio context suspended
+// Solution: Resume on user interaction
+document.addEventListener('click', async () => {
+  await audioManager.resumeAudioContext();
 });
 ```
 
-#### Theme Not Persisting
-
+### **Storage Issues**
 ```javascript
-// Check localStorage
-console.log('Saved theme:', localStorage.getItem('drumMachineTheme'));
-console.log(
-  'Current theme:',
-  document.documentElement.getAttribute('data-theme')
-);
+// Problem: Corrupted localStorage data
+// Solution: Graceful fallback
+try {
+  const data = JSON.parse(localStorage.getItem(key));
+  return data;
+} catch (error) {
+  localStorage.removeItem(key); // Clean up corrupted data
+  return defaultValue;
+}
 ```
 
-### Console Logging
+### **Mobile Compatibility**
+```javascript
+// Problem: Touch events interfering with scroll
+// Solution: Conditional preventDefault
+document.addEventListener('touchstart', (e) => {
+  const pianoKey = e.target.closest('.piano-key');
+  if (pianoKey) {
+    e.preventDefault(); // Only prevent for piano interactions
+  }
+});
+```
 
-The application includes comprehensive console logging for debugging:
+## 📚 **Resources**
 
-- Audio context initialization
-- Sample loading status
-- Theme switching
-- Error handling
+### **Documentation**
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- [ES6 Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
+- [Jest Testing](https://jestjs.io/docs/getting-started)
+- [ESLint Rules](https://eslint.org/docs/rules/)
 
-## 📚 Code Style
+### **Tools**
+- **VS Code Extensions**: ESLint, Prettier, Jest Runner
+- **Browser DevTools**: Web Audio API debugging
+- **Performance**: Lighthouse, WebPageTest
 
-### JavaScript
+### **Best Practices**
+- [JavaScript Clean Code](https://github.com/ryanmcdermott/clean-code-javascript)
+- [Web Audio Best Practices](https://developers.google.com/web/fundamentals/media/audio)
+- [Progressive Web Apps](https://web.dev/progressive-web-apps/)
 
-- Use ES6+ features (const, let, arrow functions, async/await)
-- Follow consistent naming conventions
-- Include error handling for all async operations
-- Add console logging for debugging
+## 🤝 **Contributing**
 
-### CSS
+### **Before Contributing**
+1. Read this development guide
+2. Set up development environment
+3. Run existing tests to ensure they pass
+4. Create feature branch from main
 
-- Use CSS custom properties for theming
-- Follow BEM-like naming conventions
-- Include responsive design considerations
-- Maintain accessibility standards
+### **Pull Request Guidelines**
+- **Title**: Use conventional commits format
+- **Description**: Explain what and why, not how
+- **Tests**: Include tests for new functionality
+- **Documentation**: Update relevant docs
+- **Breaking Changes**: Clearly mark and explain
 
-### HTML
-
-- Semantic HTML structure
-- Proper ARIA labels where needed
-- Clean, readable markup
-- Consistent indentation
-
-## 🔮 Potential Future Development
-
-### Planned Features
-
-- **Pattern Library**: Built-in beat templates
-- **Advanced Effects**: Reverb, delay, compression
-- **MIDI Export**: Export patterns as MIDI files
-
-### Technical Improvements
-
-- **WebAssembly**: Audio processing in WebAssembly
-- **Service Worker**: Offline-first experience
-- **PWA Support**: Install as desktop/mobile app
-
-### Contribution Areas
-
-- **UI/UX Improvements**: Better visual design and interactions
-- **Audio Quality**: Enhanced sound synthesis and effects
-- **Performance**: Optimization and memory management
-- **Accessibility**: Better keyboard navigation and screen reader support
-- **Mobile Experience**: Touch gestures and mobile-specific features
-
-## 📞 Getting Help
-
-### Resources
-
-- **Web Audio API Documentation**: MDN Web Docs
-- **CSS Grid/Flexbox**: CSS-Tricks guides
-- **JavaScript ES6+**: Modern JavaScript tutorials
-- **Audio Synthesis**: Web Audio API examples
-
-### Community
-
-- **GitHub Issues**: Report bugs and request features
-- **Pull Requests**: Submit code improvements
-- **Discussions**: Join project discussions
+### **Code Review Checklist**
+- [ ] Code follows style guide
+- [ ] Tests pass and coverage is adequate
+- [ ] No console.log statements in production code
+- [ ] Error handling is appropriate
+- [ ] Performance considerations addressed
+- [ ] Mobile compatibility tested
+- [ ] Documentation updated
 
 ---
 
-**Happy Coding! 🎵💻**
+**Remember**: Good code is readable, testable, and maintainable. When in doubt, prioritize clarity over cleverness.

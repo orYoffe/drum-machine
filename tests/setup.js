@@ -1,133 +1,102 @@
-// Test setup file for Drum Machine
-// This file runs before each test to set up the testing environment
+// Test setup for DOM environment
+const { JSDOM } = require('jsdom');
 
-// Mock Web Audio API for testing
-global.AudioContext = class MockAudioContext {
-  constructor() {
-    this.sampleRate = 44100;
-    this.state = 'running';
-    this.destination = { connect: jest.fn() };
-  }
+const dom = new JSDOM(`
+  <!DOCTYPE html>
+  <html>
+    <body>
+      <div id="sequencer-grid"></div>
+      <div id="tempo-slider" value="120"></div>
+      <div id="pattern-length-select" value="16"></div>
+      <div id="play-btn">▶️ Play</div>
+      <div id="clear-btn">🗑️ Clear</div>
+      <div id="share-btn">🔗 Share Beat</div>
+      <div id="load-btn">📂 Load Beat</div>
+      <div id="load-url-btn">🌐 Load from URL</div>
+      <div id="save-btn">💾 Save Beat</div>
+      <div id="theme-toggle">🌙</div>
+      <div id="status">Ready</div>
+      <div id="status-text">Ready</div>
+      <div id="mute-controls"></div>
+      <div id="sound-selection"></div>
+      <div id="piano-header">
+        <span class="expand-icon">▶️</span>
+        Piano
+      </div>
+      <div id="piano-keys"></div>
+      <div class="piano-content"></div>
+    </body>
+  </html>
+`, {
+  url: 'http://localhost:3000'
+});
 
-  createBufferSource() {
-    return {
-      buffer: null,
-      connect: jest.fn(),
-      start: jest.fn(),
-      stop: jest.fn()
-    };
-  }
+global.window = dom.window;
+global.document = dom.window.document;
+global.navigator = dom.window.navigator;
+global.localStorage = dom.window.localStorage;
+global.btoa = dom.window.btoa;
+global.atob = dom.window.atob;
 
-  createGain() {
-    return {
-      gain: { value: 1 },
-      connect: jest.fn()
-    };
-  }
-
-  createMediaStreamDestination() {
-    return {
-      stream: {
-        getTracks: () => []
-      },
-      connect: jest.fn(),
-      disconnect: jest.fn()
-    };
-  }
-
-  resume() {
-    this.state = 'running';
-    return Promise.resolve();
-  }
-
-  suspend() {
-    this.state = 'suspended';
-    return Promise.resolve();
-  }
-};
-
-global.webkitAudioContext = global.AudioContext;
-
-// Mock MediaRecorder
-global.MediaRecorder = class MockMediaRecorder {
-  constructor(stream, options) {
-    this.stream = stream;
-    this.options = options;
-    this.state = 'inactive';
-    this.ondataavailable = null;
-    this.onstop = null;
-  }
-
-  start() {
-    this.state = 'recording';
-  }
-
-  stop() {
-    this.state = 'inactive';
-    if (this.onstop) {
-      this.onstop();
-    }
-  }
-
-  requestData() {
-    if (this.ondataavailable) {
-      this.ondataavailable({
-        data: new Blob(['mock audio data'], { type: 'audio/webm' })
-      });
-    }
-  }
-};
-
-// Mock localStorage with actual storage
-const localStorageMock = {
-  store: {},
-  getItem: jest.fn(function (key) {
-    return this.store[key] || null;
+// Mock AudioContext properly
+const MockAudioContext = jest.fn().mockImplementation(() => ({
+  state: 'suspended',
+  resume: jest.fn().mockResolvedValue(),
+  createBufferSource: jest.fn().mockReturnValue({
+    buffer: null,
+    connect: jest.fn(),
+    start: jest.fn(),
+    stop: jest.fn()
   }),
-  setItem: jest.fn(function (key, value) {
-    this.store[key] = value;
-  }),
-  removeItem: jest.fn(function (key) {
-    delete this.store[key];
-  }),
-  clear: jest.fn(function () {
-    this.store = {};
-  })
-};
+  decodeAudioData: jest.fn().mockResolvedValue({}),
+  destination: {}
+}));
 
-// Replace the global localStorage
-Object.defineProperty(global, 'localStorage', {
-  value: localStorageMock,
+global.AudioContext = MockAudioContext;
+global.webkitAudioContext = MockAudioContext;
+
+// Mock fetch
+global.fetch = jest.fn().mockResolvedValue({
+  ok: true,
+  arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8))
+});
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock window.innerWidth
+Object.defineProperty(window, 'innerWidth', {
+  value: 1200,
   writable: true
 });
 
-// Make the mock functions available globally for tests
-global.localStorageMock = localStorageMock;
-
-// Mock URL and clipboard APIs
-global.URL = {
-  createObjectURL: jest.fn(() => 'mock-url'),
-  revokeObjectURL: jest.fn()
-};
-
-global.navigator = {
-  clipboard: {
-    writeText: jest.fn(() => Promise.resolve())
+// Mock clipboard API
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
+    writeText: jest.fn().mockResolvedValue()
   },
-  mediaDevices: {
-    getUserMedia: jest.fn(() => Promise.resolve({ getTracks: () => [] }))
-  }
-};
+  writable: true
+});
 
-// Mock window.matchMedia
-global.window = global;
-global.matchMedia = jest.fn(() => ({
-  matches: false,
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn()
-}));
+// Mock user agent for mobile detection
+Object.defineProperty(navigator, 'userAgent', {
+  value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+  writable: true
+});
 
-// Mock console methods to reduce noise in tests
+// Mock console to reduce noise in tests
 global.console = {
   ...console,
   warn: jest.fn(),
@@ -135,95 +104,3 @@ global.console = {
   log: jest.fn()
 };
 
-// Helper function to create a mock DOM element
-global.createMockElement = (tagName, attributes = {}) => {
-  const element = {
-    tagName: tagName.toUpperCase(),
-    classList: {
-      add: jest.fn(),
-      remove: jest.fn(),
-      toggle: jest.fn(),
-      contains: jest.fn(() => false)
-    },
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    querySelector: jest.fn(),
-    querySelectorAll: jest.fn(() => []),
-    appendChild: jest.fn(),
-    removeChild: jest.fn(),
-    innerHTML: '',
-    textContent: '',
-    style: {},
-    dataset: {},
-    ...attributes
-  };
-
-  // Mock getAttribute and setAttribute
-  element.getAttribute = jest.fn((name) => element.dataset[name] || null);
-  element.setAttribute = jest.fn((name, value) => {
-    element.dataset[name] = value;
-  });
-
-  return element;
-};
-
-// Helper function to create a mock DOM
-global.createMockDOM = () => {
-  const mockDOM = {
-    body: global.createMockElement('body'),
-    documentElement: global.createMockElement('html'),
-    createElement: jest.fn((tagName) => global.createMockElement(tagName)),
-    getElementById: jest.fn(),
-    querySelector: jest.fn(),
-    querySelectorAll: jest.fn(() => [])
-  };
-
-  // Set up common elements
-  mockDOM.getElementById.mockImplementation((id) => {
-    const element = global.createMockElement('div', { id });
-    mockDOM[id] = element;
-    return element;
-  });
-
-  return mockDOM;
-};
-
-// Setup before each test
-beforeEach(() => {
-  // Clear all mocks
-  jest.clearAllMocks();
-
-  // Reset localStorage mock
-  localStorageMock.getItem.mockClear();
-  localStorageMock.setItem.mockClear();
-  localStorageMock.removeItem.mockClear();
-
-  // Create fresh mock DOM
-  global.document = global.createMockDOM();
-
-  // Mock common DOM methods
-  global.document.createElement = jest.fn((tagName) =>
-    global.createMockElement(tagName)
-  );
-  global.document.body.appendChild = jest.fn();
-  global.document.body.removeChild = jest.fn();
-
-  // Mock window
-  global.window = {
-    ...global.window,
-    document: global.document,
-    location: {
-      origin: 'http://localhost:3000',
-      pathname: '/',
-      search: ''
-    },
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn()
-  };
-});
-
-// Cleanup after each test
-// afterEach(() => {
-//   // Clean up any timers
-//   jest.clearAllTimers();
-// });
